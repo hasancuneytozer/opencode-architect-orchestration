@@ -9,7 +9,7 @@
  * bekliyordu, base beklemeliydi).
  */
 
-import { classifyError, computeDelay, nextHealthy, loadFallbackConfig, DEFAULT_FALLBACK } from "../.opencode/plugins/orchestra/fallback.ts"
+import { classifyError, computeDelay, nextHealthy, sweepBreakers, loadFallbackConfig, DEFAULT_FALLBACK } from "../.opencode/plugins/orchestra/fallback.ts"
 
 let pass = 0
 let fail = 0
@@ -87,16 +87,67 @@ console.log("")
 console.log("=== 3. MODEL ZINCIRI SAGLIK SECIMI ===")
 const opened = new Map([["p/b", { failures: 3, openedAt: Date.now() }]])
 const chain = ["p/a", "p/b", "p/c"]
-check("devredeki model atlanir", nextHealthy(chain, "p/a", opened, Date.now()), "p/c")
-check("mevcut model secilmez", nextHealthy(chain, "p/c", opened, Date.now()), "p/a")
-check("bos zincir -> tanimsiz", nextHealthy([], "p/a", new Map(), Date.now()), undefined)
+check("devredeki model atlanir", nextHealthy(chain, "p/a", opened, Date.now(), 60000), "p/c")
+check("mevcut model secilmez", nextHealthy(chain, "p/c", opened, Date.now(), 60000), "p/a")
+check("bos zincir -> tanimsiz", nextHealthy([], "p/a", new Map(), Date.now(), 60000), undefined)
 check(
   "hepsi devrede -> tanimsiz",
-  nextHealthy(["p/b"], "p/a", new Map([["p/b", { failures: 1, openedAt: 1 }]]), Date.now()),
+  nextHealthy(["p/b"], "p/a", new Map([["p/b", { failures: 1, openedAt: Date.now() }]]), Date.now(), 60000),
   undefined,
 )
 
 console.log("")
+console.log("")
+console.log("=== 3b. ARKA ARDAKAYA BOZULAN MODELLER (regresyon) ===")
+// Bu blok bir hatayi kilitler: devresi kapali olsa bile sogumasi bitmis model
+// saglikli sayilir. Aksi halde zincirde iki model arka arkaya bozulunca ucuncuye
+// hic dusulemiyordu.
+const CD = 60000
+const t0 = 1_700_000_000_000
+const zincir = ["p/a", "p/b", "p/c"]
+
+// 1) p/a ve p/b ikisi de devrede, p/c sadece soğuyor
+const ikiBozuk = new Map([
+  ["p/b", { failures: 3, openedAt: t0 }],
+  ["p/c", { failures: 3, openedAt: t0 - 5000 }],
+])
+check("iki model arka arkada bozuk -> ucuncuye dusulur", nextHealthy(zincir, "p/a", ikiBozuk, t0, CD), undefined)
+check("p/c sogumasi bitmisse ucuncu olur", nextHealthy(zincir, "p/a", new Map([["p/b", { failures: 3, openedAt: t0 }]]), t0, CD), "p/c")
+
+// 2) p/b devrede ve hala soguyor, p/c temiz -> p/c
+const birBozuk = new Map([["p/b", { failures: 3, openedAt: t0 }]])
+check("bir model bozuk -> siradaki temize dusulur", nextHealthy(zincir, "p/a", birBozuk, t0, CD), "p/c")
+
+// 3) p/b sogumasi BITMIS, p/c temiz -> p/b
+const birSogudu = new Map([["p/b", { failures: 3, openedAt: t0 - CD - 1 }]])
+check("sogumasi biten model yeniden kullanilabilir", nextHealthy(zincir, "p/a", birSogudu, t0, CD), "p/b")
+
+// 4) hepsi bozuk ama sogumalari dolmus -> ilk uygun olana (dongusel) doner
+const hepsiSogudu = new Map([
+  ["p/b", { failures: 3, openedAt: t0 - CD - 1 }],
+  ["p/c", { failures: 3, openedAt: t0 - CD - 1 }],
+])
+check("hepsi soguduysa zincirde bir adim atilir", nextHealthy(zincir, "p/a", hepsiSogudu, t0, CD), "p/b")
+
+// 5) ZINCIRDE OLMAYAN bir modeldeysek yine zincirin basindan secilir
+check("zincir disi model -> zincirin basindaki saglikli model secilir", nextHealthy(zincir, "p/x", birBozuk, t0, CD), "p/a")
+
+console.log("")
+console.log("=== 3c. BAYAT DEVRE SUPURME ===")
+const karisik = new Map([
+  ["p/a", { failures: 3, openedAt: t0 }],                    // hala soguyor
+  ["p/b", { failures: 9, openedAt: t0 - CD - 1 }],            // sogumasi bitti
+  ["p/c", { failures: 2, openedAt: undefined }],              // hic acilmamis
+])
+const temizlenen = sweepBreakers(karisik, t0, CD)
+check("sogumasi biten tek model temizlendi", temizlenen, ["p/b"])
+check("hala soguyan devre korunur", karisik.get("p/a").openedAt, t0)
+check("soguyan modelin sayaci korunur", karisik.get("p/a").failures, 3)
+check("temizlenen sayac SIFIRLANIR (anahtar model kilitlenmesin)", karisik.get("p/b").failures, 0)
+check("temizlenen devre kapanir", karisik.get("p/b").openedAt, undefined)
+check("hic acilmamis devreye dokunulmaz", karisik.get("p/c").openedAt, undefined)
+check("bos haritada supurme guvenli", sweepBreakers(new Map(), t0, CD), [])
+check("hicbir sey sozumuyorsa hicbiri temizlenmez", sweepBreakers(new Map([["p/a", { failures: 3, openedAt: t0 }]]), t0, CD), [])
 console.log("=== 4. VARSAYILANLAR (guvenli varsayilan) ===")
 check("autoSwitch varsayilan KAPALI", DEFAULT_FALLBACK.autoSwitch, false)
 check("gecici olmayanlar TEKRAR EDILMEZ", DEFAULT_FALLBACK.retryNonTransient, false)

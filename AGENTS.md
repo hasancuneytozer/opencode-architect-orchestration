@@ -41,6 +41,10 @@ Burada değişiklik yaparken bu kurallar geçerlidir.
   oturum düzeyinde kalıcı bir değişikliktir; "ilk modele dönüş" davranışını geri
   yüklemek bizim sorumluluğumuzdadır (`restoreOnRecovery`). Bu küçük ama kalıcı bir durum
   sızıntısı riski taşır; kullanıcı bilerek açmalıdır.
+- **Devre kalıcı bir yasak değil.** Soğuması bitmiş model yeniden seçilebilir ve hata
+  sayacı sıfırlanır; aksi halde 5 hatadan sonra devreye girmiş bir model tek hatada yeniden
+  açılır ve kullanılamaz olur. `sweepBreakers()` her hatadan önce çalışır. Testlerde "iki
+  model arka arkada bozulur, üçüncüye düşülür" senaryosu kilitlidir; geri alınma.
 - Devre (cooldown) durumu süreç içindedir; yeniden başlatınca sıfırlanır. Kalıcılık
   gerekmiyorsa bu kabul edilmiş bir sadeleştirmedir.
 
@@ -48,7 +52,7 @@ Burada değişiklik yaparken bu kurallar geçerlidir.
 
 ```sh
 npm run typecheck                        # plugin tip güvenliği
-npm test                                 # saf mantık regresyon testi (41 kontrol)
+npm test                                 # saf mantık regresyon testi (55 kontrol)
 opencode debug agents                    # roller yüklendi mi
 opencode plugin list                     # plugin keşfedildi mi
 ```

@@ -324,7 +324,23 @@ bir sonraki işte daha bilinçli davranır. Genel amaçlı fallback eklentilerin
 
 ### Model zinciri (varsayılan KAPALI)
 
-`autoSwitch` açıldığında, bir model devreye girdiğinde sıradaki sağlıklı modele geçilir:
+`autoSwitch` açıldığında, bir model devreye girdiğinde sıradaki sağlıklı modele geçilir.
+Zincir sırayla taranır; **hâlâ soğuyan** modeller atlanır:
+
+```
+chain: [p/a, p/b, p/c]      p/a devrede
+  p/b  hâlâ soğuyorsa  -> atlanır
+  p/c  temizse          -> p/c seçilir
+  hepsi soğuyorsa      -> zincirde bir adım atılır
+```
+
+Yani gerçek bir "sırayla dene, çalışanı bul" listesidir. Devre kalıcı bir yasak değil:
+**soğuması bitmiş** bir model yeniden seçilebilir. Devre yalnızca `cooldownMs` (60 sn)
+boyunca engeldir.
+
+Ayrıca soğuması biten modelin hata sayacı sıfırlanır. Bu kritik: aksi halde 5 hatadan sonra
+devreye girmiş bir model, tek bir yeni hatada anında yeniden devreye girer ve sen o modeli
+hiç kullanamazsın. Sayaç sıfırlanınca model tam bir deneme bütçesiyle geri döner.
 
 ```jsonc
 "autoSwitch": true,

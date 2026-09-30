@@ -193,18 +193,50 @@ interface SwitchRecord {
 const modelKey = (ref: { providerID: string; id: string } | undefined): string =>
   ref ? `${ref.providerID}/${ref.id}` : "bilinmiyor"
 
-/** Zincirde bir sonraki sağlıklı modeli seçer. */
-export function nextHealthy(chain: string[], current: string, breakers: Map<string, Breaker>, now: number): string | undefined {
+/**
+ * Zincirde bir sonraki sağlıklı modeli seçer.
+ *
+ * ÖNEMLİ: Bir modelin devresi kapalı olsa bile, soğuması bitmiş olması onu
+ * hâlâ sağlıklı sayar. Daha önce "herhangi bir devre açık modeli atla" kuralı
+ * vardı; bu, zincirde iki model arka arkaya bozulduğunda üçüncüye hiç
+ * düşülememeye yol açıyordu (devreler yalnızca o anki model için sıfırlanıyordu).
+ */
+export function nextHealthy(
+  chain: string[],
+  current: string,
+  breakers: Map<string, Breaker>,
+  now: number,
+  cooldownMs: number,
+): string | undefined {
   const start = chain.indexOf(current)
   const ordered = start >= 0 ? [...chain.slice(start + 1), ...chain.slice(0, start)] : chain
   for (const candidate of ordered) {
     if (candidate === current) continue
     const breaker = breakers.get(candidate)
-    if (breaker?.openedAt && now - breaker.openedAt < 0) continue
-    if (breaker?.openedAt) continue
+    // Yalnızca soğuması BİTMEMİŞ devre atlanır.
+    if (breaker?.openedAt !== undefined && now - breaker.openedAt < cooldownMs) continue
     return candidate
   }
   return undefined
+}
+
+/**
+ * Soğuması bitmiş devreleri temizler ve sayaçlarını sıfırlar.
+ *
+ * Sayacı sıfırlamak önemli: yoksa 5 hatadan sonra devreye girmiş bir model,
+ * tek bir yeni hatada anında yeniden devreye girer ve kullanıcı o modeli hiç
+ * kullanamaz. Bu da anahtar modelin baştan sona kırılmadan olduğu anlamına gelir.
+ */
+export function sweepBreakers(breakers: Map<string, Breaker>, now: number, cooldownMs: number): string[] {
+  const cleared: string[] = []
+  for (const [key, breaker] of breakers) {
+    if (breaker.openedAt === undefined) continue
+    if (now - breaker.openedAt < cooldownMs) continue
+    breaker.openedAt = undefined
+    breaker.failures = 0
+    cleared.push(key)
+  }
+  return cleared
 }
 
 export interface FallbackHandle {
@@ -257,8 +289,11 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
       const failure = classifyError(event.error)
       if (failure.kind === "aborted") return
 
-      const key = modelKey(event.model)
       const now = Date.now()
+      // Sogumasi bitmis devreleri temizle: donen model tam bir deneme butcesiyle
+      // gelsin, tek hatada yeniden devreye girmesin.
+      sweepBreakers(breakers, now, config.cooldownMs)
+      const key = modelKey(event.model)
       const breaker = breakers.get(key) ?? { failures: 0 }
       breaker.failures += 1
       breakers.set(key, breaker)
@@ -291,7 +326,7 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
       if (breaker.openedAt) {
         // Devre açıldı ve otomatik geçiş açıksa sıradaki modele geç, hemen yeniden dene.
         if (config.autoSwitch && config.chain.length > 0) {
-          const target = nextHealthy(config.chain, key, breakers, now)
+          const target = nextHealthy(config.chain, key, breakers, now, config.cooldownMs)
           if (target) {
             const [providerID, ...rest] = target.split("/")
             const id = rest.join("/")
