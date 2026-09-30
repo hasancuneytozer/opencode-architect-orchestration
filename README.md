@@ -104,8 +104,8 @@ AGENTS.md                          deponun çalışma kuralları (otomatik yükl
 │   └── cast/SKILL.md              kadro yönetimi
 ├── commands/                      /orchestrate /auto /recall /standup /cast
 ├── plugins/orchestra/             hafıza motoru + otonom döngü
-└── memory/
-    ├── lessons.jsonl              kalıcı dersler (versiyonlanır)
+└── memory/                          sürümlenmez, her klon boş başlar
+    ├── lessons.jsonl              kalıcı dersler (kişiye özel, depoda yok)
     └── state.json                 döngü durumu + plugin tanılaması (geçici)
 ```
 
@@ -192,9 +192,17 @@ Modelin disiplinine bırakılsaydı yakalama güvenilmez olurdu.
 
 ## Sıfırlamak / düzenlemek
 
-`lessons.jsonl` normal bir metin dosyasıdır. Elle düzenlediğinde ya da sildiğinde sistem bir
-sonraki okumada fark eder: dosyayı **silmek hafızayı sıfırlar** (plugin bayat kopyasını geri
-yazmaz), elle eklediğin ders hemen kullanılabilir olur. `state.json` geçicidir, sürümlenmez.
+`.opencode/memory/` **depoya girmez** (`.gitignore`'da). Bu bilinçli bir tercihtir: her yeni
+klon **sıfır** bir hafızayla başlar, yani sistem sana devredilen dersleri değil, **kendi
+hattalarından** öğrenir. Başkasının hatasıyla değil, senin hatanla çalışır.
+
+Dosya normal bir metin: elle düzenlediğinde ya da sildiğinde sistem bir sonraki okumada fark
+eder. **Silmek hafızayı sıfırlar** (plugin bayat kopyasını geri yazmaz), elle eklediğin ders
+hemen kullanılabilir olur.
+
+Paylaşılan bir ders seti kurmak istersen (ekip standardı gibi), `lessons.jsonl` dosyasını
+kendi projenizde ayrıca sürümlenebilir yapabilirsiniz; bu durumda o klon kendi kopyasıyla
+başlar.
 
 ---
 
@@ -257,7 +265,8 @@ Temkinli bir kurulum istersen 2. bloktaki `shell: allow` satırını `ask` yap: 
 ## Taşıma
 
 Klasörü kopyala, `npm install` çalıştır. Başka projede de aynı sistem çalışır. Hafıza
-projeye özeldir: `.opencode/memory/` kopyalanırsa o proje de o dersleri bilir.
+**kopyalanmaz**: `.opencode/memory/` o projede sıfırdan başlar ve oradan öğrenir. Derslerin
+aktarılmak istersen `.opencode/memory/lessons.jsonl` dosyasını elle hedef projeye kopyala.
 
 ---
 

@@ -11,7 +11,7 @@ Burada değişiklik yaparken bu kurallar geçerlidir.
 | Beceri | `.opencode/skills/<id>/SKILL.md` | Kimlik dosya yolundan gelir; `<id>` ile klasör adı aynı olmalı. |
 | Komut | `.opencode/commands/<ad>.md` | Yalnızca `.md`. `$ARGUMENTS` kullanıcı girdisidir. |
 | Hafıza | `.opencode/plugins/orchestra/` | Tip güvenliği zorunlu: `npm run typecheck` yeşil olmadan bitirme. |
-| Veri | `.opencode/memory/` | `lessons.jsonl` versiyonlanır, `state.json` geçicidir. |
+| Veri | `.opencode/memory/` | **Sürümlenmez** (`.gitignore`'da). Hafıza kişiye özeldir; her klon sıfırdan başlar. |
 
 ## Plugin kuralları
 
@@ -41,8 +41,8 @@ parça kaydedilememiştir. `state.json` içindeki `diagnostics.steps` bunun kayn
 - Ders **kural** olmalı, olay değil: "bunu yap" yaz, "dikkat et" yazma.
 - Tek seferlik hatalar derse çevrilmez. Eşik 3.
 - Yanlış dersi silme, `orchestra_forget` ile emekliye ayır.
-- `lessons.jsonl` elle düzenlenebilir; plugin dış değişikliği fark eder ve üzerine yazar.
-  Dosyayı silerek sıfırlamak çalışır.
+- `.opencode/memory/` depoya girmez; her klon sıfır hafızayla başlar. Hafıza elle
+  düzenlenebilir, plugin dış değişikliği fark eder. Dosyayı silmek hafızayı sıfırlar.
 
 ## Durum
 

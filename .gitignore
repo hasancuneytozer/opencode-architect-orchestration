@@ -1,5 +1,10 @@
 node_modules/
-.opencode/memory/state.json
+
+# Orchestra hafızası kişiye özeldir; depoya girmez.
+# Böylece her yeni klon SIFIR bir hafızayla başlar: sistem kendi hatasından öğrenir,
+# senin hatanla değil. Sıfırlamak için dosyayı silmen yeterli.
+.opencode/memory/
+
 .worktrees/
 *.log
 .DS_Store
