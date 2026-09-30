@@ -17,6 +17,7 @@ import { Plugin } from "@opencode/plugin"
 import { Memory } from "./memory"
 import { registerTools } from "./tools"
 import { registerLoop } from "./loop"
+import { registerFallback, type FallbackHandle } from "./fallback"
 
 /**
  * Plugin'in kendi araçlarının etkin adları namespace uygulanmış hâliyle gelir
@@ -156,10 +157,11 @@ export default Plugin.define({
     // komutu) kullanıcıyı beklediği bir sistemden mahrum bırakır; bunu görünür kıl.
     const steps: Record<string, "ok" | "hata"> = {}
     let detail: string | undefined
-    const record = async (name: string, run: () => Promise<unknown>) => {
+    const record = async <T,>(name: string, run: () => Promise<T>): Promise<T | undefined> => {
       try {
-        await run()
+        const result = await run()
         steps[name] = "ok"
+        return result
       } catch (error) {
         steps[name] = "hata"
         detail = `${name}: ${error instanceof Error ? error.message : String(error)}`
@@ -168,6 +170,7 @@ export default Plugin.define({
 
     await record("tools", () => registerTools(ctx, memory))
     await record("loop", () => registerLoop(ctx, memory))
+    const fallback = await record("fallback", async () => registerFallback(ctx, memory, ctx.location.directory))
     await memory.setDiagnostics({ startedAt: new Date().toISOString(), steps, detail })
     const failed = Object.entries(steps).filter(([, value]) => value !== "ok")
     if (failed.length > 0) console.error(`[orchestra] ${detail}`)

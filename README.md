@@ -103,10 +103,18 @@ AGENTS.md                          deponun çalışma kuralları (otomatik yükl
 │   ├── lesson/SKILL.md            hatadan ders çıkarma
 │   └── cast/SKILL.md              kadro yönetimi
 ├── commands/                      /orchestrate /auto /recall /standup /cast
-├── plugins/orchestra/             hafıza motoru + otonom döngü
+├── orchestra.json                 dayanıklılık ayarları (yoksa varsayılanlar)
+├── plugins/orchestra/             hafıza motoru + otonom döngü + dayanıklılık
+│   ├── memory.ts                  ders deposu, puanlama, otomatik yakalama
+│   ├── tools.ts                   orchestra_recall/lesson/forget/report
+│   ├── loop.ts                    /loop komutu
+│   ├── fallback.ts                retry hook'u, sınıflandırma, devre, geri çekilme
+│   └── index.ts                   bağlama + hafıza enjeksiyonu
 └── memory/                          sürümlenmez, her klon boş başlar
     ├── lessons.jsonl              kalıcı dersler (kişiye özel, depoda yok)
     └── state.json                 döngü durumu + plugin tanılaması (geçici)
+
+scripts/orchestra.test.mjs        saf mantık regresyon testi (npm test)
 ```
 
 Roller, beceriler ve komutlar **düz dosyadır**. Eklemek = dosya eklemek, çıkarmak = dosya
@@ -267,7 +275,108 @@ yazma, `git push` gibi işlerde `blocked` durur. `opencode.jsonc` bu komutları 
 
 ---
 
+## Dayanıklılık (fallback)
+
+Sağlayıcı hatalarında iki işi birden yapar: **boşuna deneme harcamaz** ve **bu kalıpları
+unutmaz**. opencode'un hazır `session.hook("retry")` hook'unu kullanır; hook içinde uyuyup
+elle yeniden prompt atmaz, `event.decision` değerini değiştirir. Böylece opencode kendi
+attempt muhasebesini ve sert tavanını yönetmeye devam eder.
+
+### Ne zaman tekrar denenir, ne zaman denemez
+
+| Hata | Sınıf | Karar | Neden |
+| --- | --- | --- | --- |
+| 429 | hız sınırı | **tekrar dene**, üstel bekleme | geçici |
+| 5xx | sunucu | **tekrar dene**, orta bekleme | geçici |
+| ağ / timeout | ağ | **tekrar dene**, kısa bekleme | geçici |
+| 402 | kota | **tekrar deneme** | beklemek işe yaramaz, sadece bütçe yakar |
+| 400 / 404 / 422 | geçersiz istek | **tekrar deneme** | aynı istek aynı cevabı alır |
+| bağlam taşması | taşma | **tekrar deneme** | opencode ayrı yolla compaction ile çözer |
+| iptal | iptal | dokunma | kullanıcı istedi |
+
+### Geri çekilme
+
+`delay = min(maxDelayMs, baseDelayMs × 2^(attempt-2))` + %25 rastgelelik.
+
+`attempt` fiziksel denemedir: ilk istek 1, **ilk retry 2**. Yani ilk retry tam
+`baseDelayMs` bekler, sonrakiler ikiye katlar. Rastgelelik, eşzamanlı iki isteğin aynı
+anda geri dönüp sağlayıcıyı tekrar yormasını engeller.
+
+### Devre (cooldown)
+
+Bir model üst üste `cooldownThreshold` kez (varsayılan 3) başarısız olursa o model
+`cooldownMs` boyunca (varsayılan 60 sn) devre dışı bırakılır. Devre açıkken gelen istekler
+**anında** `retry: false` döner — hazır deneme bütçesini ölü bir modelde yakmaz.
+
+### Hafızaya yazma (bizim farkımız)
+
+Dayanıklılık sadece bir dosyaya log yazmaz. Tekrarlanan kalıplar hafızaya **sinyal** olarak
+yazılır, 3. eşikte kuralları eşiğe girer:
+
+```
+orchestra:fallback:quota            → "bu sağlayıcıda kredi bitti"
+orchestra:fallback:rate-limit       → "bu model bu sağlayıcıda hız sınırı atıyor"
+orchestra:fallback:context-overflow → "bu projede bağlam taşıyor, küçük adımla ilerle"
+```
+
+Yani sistem "bu sağlayıcı bana rate-limit atıyor" derdini kendi dilinde öğrenir ve mimar
+bir sonraki işte daha bilinçli davranır. Genel amaçlı fallback eklentilerinin bu kısmı yok.
+
+### Model zinciri (varsayılan KAPALI)
+
+`autoSwitch` açıldığında, bir model devreye girdiğinde sıradaki sağlıklı modele geçilir:
+
+```jsonc
+"autoSwitch": true,
+"chain": ["opencode/space-bunny-free", "opencode/nemotron-3-ultra-free"]
+```
+
+> **Neden varsayılan kapalı?** `ctx.session.switchModel` oturum düzeyinde **kalıcı** bir
+> değişikliktir. "Az önce seçtiğin modele dönme" davranışını geri yüklemek bizim
+> sorumluluğumuzdadır (`restoreOnRecovery`). Bu, küçük ama kalıcı bir durum sızıntısı
+> riski taşır; bilerek açılmalıdır.
+
+### Yapılandırma
+
+`.opencode/orchestra.json` (yoksa geçerli varsayılanlar kullanılır):
+
+```jsonc
+{
+  "fallback": {
+    "enabled": true,
+    "cooldownThreshold": 3,
+    "cooldownMs": 60000,
+    "baseDelayMs": 2000,
+    "maxDelayMs": 60000,
+    "jitter": 0.25,
+    "retryNonTransient": false,
+    "chain": [],
+    "autoSwitch": false,
+    "restoreOnRecovery": true,
+    "learnFromFailures": true,
+    "perAgent": {}
+  }
+}
+```
+
+`perAgent` ile rol bazlı geçersiz kılma yapılabilir — örneğin `architect` sık hız sınırı
+alıyorsa yalnızca onun ayarları değişir:
+
+```jsonc
+"perAgent": { "architect": { "cooldownThreshold": 2, "baseDelayMs": 4000 } }
+```
+
+### Sınırlar
+
+- Devre durumu **süreç içindedir**; opencode yeniden başlatılınca sıfırlanır.
+- opencode'un kendi sert attempt tavanı geçerlidir; bu katman onu aşamaz.
+- Model geçişi, o anki denemenin yeni modelle mi yoksa bir sonraki turla mı çalışacağı
+  garanti değildir; ölçemediğimiz için `autoSwitch` kapalı gelir.
+
+---
+
 ## Güvenlik ve izinler
+
 
 `opencode.jsonc` iki bloktan oluşur:
 
@@ -315,3 +424,14 @@ Ayrıntılı günlük: `~/.local/share/opencode/log/opencode.log`
   uygular, sonra yazar. Tersi sırada kullanıcının sıfırlaması sessizce geri alınırdı.
 - **Sessiz arıza yok.** Kayıt adımları ölçülür, tanılama `orchestra_recall` çıktısında
   görünür. Eksik parça, eksik sistem hissi vermemelidir.
+- **Hazır hook'u kullan, kendi döngünü kurma.** Dayanıklılık, `retry` hook'u içinde
+  uyuyup elle prompt atmak yerine `event.decision` değiştirir. Böylece opencode'un attempt
+  muhasebesi, sert tavanı ve retry geçmişi bozulmaz; başka bir plugin de aynı hook'u
+  kullanıyorsa kararlar birikir.
+- **Anlamsız tekrarı durdur.** Kota ve geçersiz istekte tekrar denemek yalnızca bütçe
+  yakar. "Daha çok dene" her zaman doğru değildir.
+- **Dayanıklılık hatırlamalı.** Genel amaçlı fallback eklentileri log dosyasına yazar;
+  biz hafızaya yazıyoruz, böylece kalıbın kendisi sistemin bilgisi hâline geliyor.
+- **Güçlü varsayılan, açık risk.** `autoSwitch` kapalı gelir: `switchModel` kalıcı bir
+  oturum değişikliğidir ve geri dönüşü biz yönetiriz. Ölçemediğimiz bir davranışı varsayılan
+  açmak, kullanıcıdan habersiz durum sızdırmaktır.

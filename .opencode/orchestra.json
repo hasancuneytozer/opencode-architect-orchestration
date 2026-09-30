@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "fallback": {
+    "enabled": true,
+
+    "cooldownThreshold": 3,
+    "cooldownMs": 60000,
+    "baseDelayMs": 2000,
+    "maxDelayMs": 60000,
+    "jitter": 0.25,
+
+    "retryNonTransient": false,
+
+    "chain": [],
+    "autoSwitch": false,
+    "restoreOnRecovery": true,
+
+    "learnFromFailures": true,
+
+    "perAgent": {}
+  }
+}

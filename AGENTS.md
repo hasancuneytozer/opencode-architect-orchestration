@@ -11,6 +11,8 @@ Burada değişiklik yaparken bu kurallar geçerlidir.
 | Beceri | `.opencode/skills/<id>/SKILL.md` | Kimlik dosya yolundan gelir; `<id>` ile klasör adı aynı olmalı. |
 | Komut | `.opencode/commands/<ad>.md` | Yalnızca `.md`. `$ARGUMENTS` kullanıcı girdisidir. |
 | Hafıza | `.opencode/plugins/orchestra/` | Tip güvenliği zorunlu: `npm run typecheck` yeşil olmadan bitirme. |
+| Dayanıklılık | `.opencode/plugins/orchestra/fallback.ts` | Saf mantığı `npm test` ile test edilir. Hook asla isteği bozamamalı. |
+| Yapılandırma | `.opencode/orchestra.json` | Yoksa geçerli varsayılanlar kullanılır. |
 | Veri | `.opencode/memory/` | **Sürümlenmez** (`.gitignore`'da). Hafıza kişiye özeldir; her klon sıfırdan başlar. |
 
 ## Plugin kuralları
@@ -24,27 +26,48 @@ Burada değişiklik yaparken bu kurallar geçerlidir.
 - Araç hatası iki yoldan gelir: `status === "error"` ya da "başarılı" dönüp hata metni
   içeren çıktı. V2'de sıfır dışı çıkış kodu ikincisidir; ikisini de ele al.
 
+## Dayanıklılık kuralları (`fallback.ts`)
+
+- `session.hook("retry")` **hazır** hook'tur. İçinde uyuyup elle yeniden prompt atma;
+  `event.decision` değiştir. Böylece opencode kendi attempt muhasebesini ve sert tavanını
+  yönetmeye devam eder.
+- `attempt` fiziksel denemedir: ilk istek 1, **ilk retry 2**. İlk retry tam `baseDelayMs`
+  beklemeli, sonrakiler ikiye katlamalı. (Bu sıra burada bir kez bozuktu, test yakaladı.)
+- **Tekrar denemenin anlamsız olduğu durumlar:** kota (402), geçersiz istek (4xx), bağlam
+  taşması. Bunlarda `retry: false` döndür; hazır deneme bütçesini yakma.
+- **Bağlam taşması** opencode tarafından ayrı yolla compaction ile çözülür. Retry etmek
+  aynı taşmayı yeniden üretir.
+- `autoSwitch` **varsayılan kapalıdır** ve kapatılmalıdır. `ctx.session.switchModel`
+  oturum düzeyinde kalıcı bir değişikliktir; "ilk modele dönüş" davranışını geri
+  yüklemek bizim sorumluluğumuzdadır (`restoreOnRecovery`). Bu küçük ama kalıcı bir durum
+  sızıntısı riski taşır; kullanıcı bilerek açmalıdır.
+- Devre (cooldown) durumu süreç içindedir; yeniden başlatınca sıfırlanır. Kalıcılık
+  gerekmiyorsa bu kabul edilmiş bir sadeleştirmedir.
+
 ## Doğrulama
 
 ```sh
 npm run typecheck                        # plugin tip güvenliği
+npm test                                 # saf mantık regresyon testi (41 kontrol)
 opencode debug agents                    # roller yüklendi mi
 opencode plugin list                     # plugin keşfedildi mi
-opencode api get /openapi.json           # servis ayakta mı
 ```
 
 Plugin tanılama kanalı: `orchestra_recall` çıktısının sonunda `UYARI:` satırı varsa bir
 parça kaydedilememiştir. `state.json` içindeki `diagnostics.steps` bunun kaynağıdır.
+Beklenen değer: `tools: ok`, `loop: ok`, `fallback: ok`.
 
 ## Hafıza kuralları
 
 - Ders **kural** olmalı, olay değil: "bunu yap" yaz, "dikkat et" yazma.
 - Tek seferlik hatalar derse çevrilmez. Eşik 3.
 - Yanlış dersi silme, `orchestra_forget` ile emekliye ayır.
-- `.opencode/memory/` depoya girmez; her klon sıfır hafızayla başlar. Hafıza elle
-  düzenlenebilir, plugin dış değişikliği fark eder. Dosyayı silmek hafızayı sıfırlar.
+- Dayanıklılık katmanı da hafızaya yazar: `fallback:<sınıf>` imzalı auto kayıtlar üretilir
+  ve mevcut eşik/sinyal mantığıyla derse dönüşür. Yeni bir kayıt türü icat etme —
+  `Memory.capture()`'ı yeniden kullan.
+- `.opencode/memory/` depoya girmez; her klon sıfır hafızayla başlar.
 
 ## Durum
 
-Bitirdiğinde şunları raporla: hangi katmana dokundun, tip kontrolü geçti mi, canlı
-davranışı nasıl doğruladın. "Muhtemelen çalışır" kabul edilmez.
+Bitirdiğinde şunları raporla: hangi katmana dokundun, tip kontrolü ve test geçti mi,
+canlı davranışı nasıl doğruladın. "Muhtemelen çalışır" kabul edilmez.
