@@ -210,9 +210,17 @@ export default Plugin.define({
       void memory.persistCapture().catch(() => undefined)
     })
 
-    // --- 3a. Görev bağlamını kaydet ---------------------------------------
+    // --- 3a. Görev bağlamını kaydet + model geri dönüşü -----------------
+    // Geri dönüş BURADA yapılır, context hook'unda değil. İki sebeple:
+    //   1) context model gönderilmeden hemen önce çalışır; orada yaptığımız
+    //      switchModel o turun isteğini etkilemez, yani bir tur kaybedilir.
+    //   2) context her model çağrısında çalışır; araç çağrısından sonra da
+    //      tetiklenir ve geri dönüş turun ORTASINDA devreye girip bozuk
+    //      modele geri atabilirdi.
+    // prompt ise kabul anıdır: bir sonraki turun modeli daha çözülmemiştir.
     const promptHook = await ctx.session.hook("prompt", (event) => {
       memory.setGoal(event.sessionID, event.prompt.text ?? "", event.messageID)
+      void fallback?.handle.onTurnStart(event.sessionID).catch(() => undefined)
     })
 
     // --- 3b. Alt oturumlar (subagent) ana oturumun hedefini miras alsın ----
@@ -244,6 +252,8 @@ export default Plugin.define({
     // --- 3c. Her kullanıcı turunda bir kez hafıza enjeksiyonu ------------
     const contextHook = await ctx.session.hook("context", async (event) => {
       try {
+        // Sıra önemli: dayanıklılık önce karar verir (model geri dönüşü),
+        // sonra hafıza tazelenir ve blok enjekte edilir.
         await memory.sync()
         await ensureGoal(event.sessionID)
         if (!memory.shouldInject(event.sessionID)) return

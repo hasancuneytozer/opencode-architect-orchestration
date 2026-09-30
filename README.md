@@ -357,6 +357,17 @@ hiç kullanamazsın. Sayaç sıfırlanınca model tam bir deneme bütçesiyle ge
 > sorumluluğumuzdadır (`restoreOnRecovery`). Bu, küçük ama kalıcı bir durum sızıntısı
 > riski taşır; bilerek açılmalıdır.
 
+> **Geri dönüş kabul anında olur.** Model düzelince ilk modele dönüş, bir sonraki turun
+> başında (`prompt` kabul anında) gerçekleşir — yani o turun isteği gerçekten ilk modelde
+> çalışır. Bu bilinçli bir seçimdir: `context` hook'u model gönderilmeden hemen önce
+> çalıştığı için oradaki bir geçiş o turu etkilemez, ayrıca araç çağrısından sonra da
+> tetiklendiği için geri dönüş turun **ortasında** devreye girebilirdi.
+>
+> Canlı test: birincil model kalıcı olarak bozukken, 1. turda yedeğe geçildi ve 2. turda
+> istek tekrar birincil modelde denendi (402) ve yeniden yedeğe düşüldü. Yani sistem her
+> turda önce birincili deniyor. Bedeli: birincil kalıcı bozuksa her turda bir başarısız
+> deneme. Daha az deneme istersen `restoreOnRecovery: false` yap — ama o zaman oturum
+> yedek modelde kalıcı olarak takılır.
 ### Yapılandırma
 
 `.opencode/orchestra.json` (yoksa geçerli varsayılanlar kullanılır):

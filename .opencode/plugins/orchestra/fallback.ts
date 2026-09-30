@@ -249,8 +249,16 @@ export function sweepBreakers(breakers: Map<string, Breaker>, now: number, coold
 }
 
 export interface FallbackHandle {
-  /** `context` hook'una bağlanır: devre kapalıyken ilk modele dönüşü tetikler. */
-  onContext(sessionID: string): Promise<void>
+  /**
+   * `prompt` hook'una bağlanır: model düzelince ilk modele dönüşü tetikler.
+   *
+   * Neden `prompt` ve `context` değil: `context` model gönderilmeden hemen önce
+   * çalıştığı için oradaki bir switch o turun isteğini etkilemez (bir tur
+   * kaybedilir) ve araç çağrısından sonra da tetiklendiği için geri dönüş
+   * turun ortasında devreye girebilirdi. `prompt` kabul anıdır; bir sonraki
+   * turun modeli henüz çözülmemiştir.
+   */
+  onTurnStart(sessionID: string): Promise<void>
   /** Tanılama için. */
   stats(): { openBreakers: string; switches: number; learned: number }
 }
@@ -278,7 +286,12 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
   const switches = new Map<string, SwitchRecord>()
   const originals = new Map<string, string>()
   /** Son `context` çağrısından bu yana retry oldu mu? Başarı çıkarımı için. */
-  const retriedSinceContext = new Set<string>()
+  // Geri donus karari: gecis anindaki retry sayacini hatirlar. Bir sonraki
+  // context'te sayac DEGISMEMISSE, gecisten sonra hic retry olmadi demektir;
+  // yani gecilen tur basarili bitmis ve ilk modele donebiliriz. Bayat bayat
+  // isaret yontemi BIR TUR kaybediyordu; bu yontem kaybetmez.
+  const switchMark = new Map<string, number>()
+  let retryTotal = 0
   let learned = 0
 
   const configFor = (agent?: string): FallbackConfig => {
@@ -313,6 +326,8 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
     if (!providerID || !id) return false
     originals.set(sessionID, originals.get(sessionID) ?? from)
     switches.set(sessionID, { from, to: target, at: now })
+    // Geri donus icin isaret: bu andaki retry sayaci.
+    switchMark.set(sessionID, retryTotal)
     await ctx.session.switchModel({ sessionID, model: { providerID, id } })
     return true
   }
@@ -322,7 +337,7 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
       // Yapilandirmayi canli tazele; karar ESKI config ile hesaplanmasin.
       await refreshConfig()
       const config = configFor(event.agent)
-      retriedSinceContext.add(event.sessionID)
+      retryTotal += 1
       if (!config.enabled) return
 
       const failure = classifyError(event.error)
@@ -389,23 +404,28 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
   steps.retry = "ok"
 
   const handle: FallbackHandle = {
-    async onContext(sessionID: string) {
+    async onTurnStart(sessionID: string) {
       try {
         const config = configFor(undefined)
         if (!config.enabled || !config.autoSwitch || !config.restoreOnRecovery) return
-        // `context` bir agent-loop isteğinden hemen önce çalışır. Arada `retry`
-        // çağrısı olduysa önceki istek başarısızdı, dolayısıyla henüz toparlanmadık.
-        if (retriedSinceContext.has(sessionID)) {
-          retriedSinceContext.delete(sessionID)
-          return
-        }
-        const record = switches.get(sessionID)
-        if (!record) return
+
+        // `context` bir agent-loop isteğinden hemen ÖNCE çalışır; yani burada
+        // gördüğümüz retry'lar bir ÖNCEKİ tura aittir.
+        //
+        // Geçiş yaptığımızda retry sayacının o anki değerini not ettik. Buraya
+        // geldiğimizde sayaç aynıysa, geçişten sonra HİÇ retry olmamış demektir;
+        // yani geçilen tur başarıyla bitti ve ilk modele dönebiliriz.
+        // Sayaç değiştiyse yedek model de tutmuş, hâlâ bekliyoruz.
+        const mark = switchMark.get(sessionID)
+        if (mark === undefined) return
+        if (retryTotal !== mark) return
+
         const original = originals.get(sessionID)
         if (!original) return
         const [providerID, ...rest] = original.split("/")
         const id = rest.join("/")
         if (!providerID || !id) return
+        switchMark.delete(sessionID)
         switches.delete(sessionID)
         originals.delete(sessionID)
         await ctx.session.switchModel({ sessionID, model: { providerID, id } })
