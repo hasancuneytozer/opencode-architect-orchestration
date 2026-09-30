@@ -9,6 +9,51 @@ başka bir projeye kopyalarsan sistem tamamen taşınır.
 
 ---
 
+## Kurulum (git)
+
+```sh
+git clone https://github.com/hasancuneytozer/opencode-architect-orchestration.git
+cd opencode-architect-orchestration
+npm install
+opencode
+```
+
+`npm install` yalnızca plugin'in ihtiyaç duyduğu `@opencode/plugin` paketini kurar; sistemin
+kendisi dosya tabanlıdır. Kurulumdan sonra mimar rolü otomatik açılır.
+
+Bu deponun **kendi üzerinde** çalışması gerekmez — istediğiniz herhangi bir projeye
+kopyalayıp orada kullanabilirsiniz:
+
+```sh
+# kendi projenize taşıyın
+cp -r <bu depo>/.opencode <sizin projeniz>/
+cp    <bu depo>/opencode.jsonc <sizin projeniz>/
+```
+
+Yalnızca tek bir projede kullanacaksanız kopyalamak yeterlidir; `git` gerekmez. Depoyu
+submodül olarak eklemek isterseniz:
+
+```sh
+git submodule add https://github.com/hasancuneytozer/opencode-architect-orchestration.git .opencode
+```
+
+Submodül yöntemi **önerilmez**: `.opencode/` altındaki roller, beceriler, komutlar ve plugin
+gerekirse elle düzenlenir. Submodül güncellemeleri bu dosyaları sessizce geri alabilir.
+
+### Gereksinimler
+
+| Gereksinim | Sürüm |
+| --- | --- |
+| opencode | 2.x (V2 plugin API'si) |
+| Node.js | 22+ |
+| Model | `opencode.jsonc` içinde tanımlı; varsayılan `opencode/longcat-2.5-preview-free` (ücretsiz) |
+
+Ücretli model kullanmak isterseniz `opencode.jsonc` içindeki `model` satırını ve rol
+dosyalarındaki `model:` alanlarını değiştirin. Aynı anda role özel model atamak için
+`agents.<id>.model` kullanılabilir.
+
+---
+
 ## Hızlı başlangıç
 
 ```sh
