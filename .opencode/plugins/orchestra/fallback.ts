@@ -74,6 +74,15 @@ export const DEFAULT_FALLBACK: FallbackConfig = {
 
 const CONFIG_FILE = "orchestra.json"
 
+/** Dosyanin son degisiklik zamani. Yoksa -1. */
+async function stampOf(file: string): Promise<number> {
+  try {
+    return (await fs.stat(file)).mtimeMs
+  } catch {
+    return -1
+  }
+}
+
 export async function loadFallbackConfig(root: string): Promise<FallbackConfig> {
   const file = path.join(root, ".opencode", CONFIG_FILE)
   let raw: unknown
@@ -252,7 +261,19 @@ export interface FallbackHandle {
 
 export async function registerFallback(ctx: PluginContext, memory: Memory, root: string): Promise<{ handle: FallbackHandle; steps: Record<string, "ok" | "hata"> }> {
   const steps: Record<string, "ok" | "hata"> = {}
-  const baseConfig = await loadFallbackConfig(root)
+  // Yapilandirma CANLI tutulur. Daha once yalnizca setup() icinde okunuyordu;
+  // bu da orchestra.json duzenlemeleri plugin yeniden yuklenene kadar etkisiz
+  // kaliyordu (canli testte "ozellik calismiyor" diye yanlis okundu).
+  // Maliyeti yalnizca saglayici hatasi oldugunda odenir; normal akista sifir.
+  const configFile = path.join(root, ".opencode", CONFIG_FILE)
+  let baseConfig = await loadFallbackConfig(root)
+  let configStamp = await stampOf(configFile)
+  const refreshConfig = async () => {
+    const current = await stampOf(configFile)
+    if (current === configStamp) return
+    baseConfig = await loadFallbackConfig(root)
+    configStamp = current
+  }
   const breakers = new Map<string, Breaker>()
   const switches = new Map<string, SwitchRecord>()
   const originals = new Map<string, string>()
@@ -280,8 +301,26 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
     learned++
   }
 
+  // Sağlıklı bir modele geçmeyi dener. Zaten bu oturumda `from` modelinden
+  // geçilmişse tekrar dener; yoksa geçiş denemeleri döngüye döner.
+  const trySwitch = async (sessionID: string, from: string, config: FallbackConfig, now: number): Promise<boolean> => {
+    if (!config.autoSwitch || config.chain.length === 0) return false
+    if (switches.get(sessionID)?.from === from) return false // bu modelden zaten geçilmiş
+    const target = nextHealthy(config.chain, from, breakers, now, config.cooldownMs)
+    if (!target) return false
+    const [providerID, ...rest] = target.split("/")
+    const id = rest.join("/")
+    if (!providerID || !id) return false
+    originals.set(sessionID, originals.get(sessionID) ?? from)
+    switches.set(sessionID, { from, to: target, at: now })
+    await ctx.session.switchModel({ sessionID, model: { providerID, id } })
+    return true
+  }
+
   const retryHook = await ctx.session.hook("retry", async (event) => {
     try {
+      // Yapilandirmayi canli tazele; karar ESKI config ile hesaplanmasin.
+      await refreshConfig()
       const config = configFor(event.agent)
       retriedSinceContext.add(event.sessionID)
       if (!config.enabled) return
@@ -298,13 +337,23 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
       breaker.failures += 1
       breakers.set(key, breaker)
 
-      // Devre açıkken tekrar denemek anlamsız; hazır deneme bütçesini koru.
+      // Devre AÇIKKEN: aynı modele tekrar gitmek anlamsız. Ama sagliкli bir
+      // alternatif varsa VAZGEÇMEK en ucuz yol değil — GECMEK en ucuz yoldur.
+      // Daha once burada dogrudan retry:false donuluyordu; bu, devre acik
+      // kaldigi surece zincirin hic ilerlemesine yol aciyordu.
       if (breaker.openedAt && now - breaker.openedAt < config.cooldownMs) {
+        if (failure.transient || config.retryNonTransient) {
+          if (await trySwitch(event.sessionID, key, config, now)) {
+            event.decision = { retry: true, delay: Math.min(config.baseDelayMs, 1000) }
+            return
+          }
+        }
         event.decision = { retry: false }
         return
       }
+
       if (breaker.openedAt) {
-        // Soğuma bitti: sayacı sıfırla.
+        // Soguma bitti: sayaci sifirla.
         breaker.openedAt = undefined
         breaker.failures = 0
       }
@@ -317,29 +366,16 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
 
       const retryable = failure.transient || config.retryNonTransient
       if (!retryable) {
-        // Kota/geçersiz istek: yeniden denemek işe yaramaz, sessizce dur.
+        // kota/geçersiz istek: yeniden denemek işe yaramaz, sessizce dur.
         event.decision = { retry: false }
         note(event.agent, failure, key)
         return
       }
 
       if (breaker.openedAt) {
-        // Devre açıldı ve otomatik geçiş açıksa sıradaki modele geç, hemen yeniden dene.
-        if (config.autoSwitch && config.chain.length > 0) {
-          const target = nextHealthy(config.chain, key, breakers, now, config.cooldownMs)
-          if (target) {
-            const [providerID, ...rest] = target.split("/")
-            const id = rest.join("/")
-            if (providerID && id) {
-              originals.set(event.sessionID, originals.get(event.sessionID) ?? key)
-              switches.set(event.sessionID, { from: key, to: target, at: now })
-              await ctx.session.switchModel({ sessionID: event.sessionID, model: { providerID, id } })
-              // Model değişti; kısa bir bekleyişle framework'un yeni modelle
-              // yeniden denemesine izin ver.
-              event.decision = { retry: true, delay: Math.min(config.baseDelayMs, 1000) }
-              return
-            }
-          }
+        if (await trySwitch(event.sessionID, key, config, now)) {
+          event.decision = { retry: true, delay: Math.min(config.baseDelayMs, 1000) }
+          return
         }
         event.decision = { retry: false }
         return
@@ -390,3 +426,4 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
 
   return { handle, steps }
 }
+

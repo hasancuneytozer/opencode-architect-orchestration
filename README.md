@@ -322,6 +322,11 @@ orchestra:fallback:context-overflow → "bu projede bağlam taşıyor, küçük 
 Yani sistem "bu sağlayıcı bana rate-limit atıyor" derdini kendi dilinde öğrenir ve mimar
 bir sonraki işte daha bilinçli davranır. Genel amaçlı fallback eklentilerinin bu kısmı yok.
 
+> **Yapılandırma canlıdır.** `.opencode/orchestra.json` dosyasını düzenlediğinde
+> opencode'u yeniden başlatmana, plugin'i yeniden yüklemene gerek yok. Ayar dosyası her hata
+> olayında kontrol edilir; değişmişse yeniden okunur. Bu maliyet yalnızca sağlayıcı hatası
+> olduğunda ödenir, normal akışta hiç çalışmaz.
+
 ### Model zinciri (varsayılan KAPALI)
 
 `autoSwitch` açıldığında, bir model devreye girdiğinde sıradaki sağlıklı modele geçilir.
@@ -386,8 +391,11 @@ alıyorsa yalnızca onun ayarları değişir:
 
 - Devre durumu **süreç içindedir**; opencode yeniden başlatılınca sıfırlanır.
 - opencode'un kendi sert attempt tavanı geçerlidir; bu katman onu aşamaz.
-- Model geçişi, o anki denemenin yeni modelle mi yoksa bir sonraki turla mı çalışacağı
-  garanti değildir; ölçemediğimiz için `autoSwitch` kapalı gelir.
+- **Yalnızca sağlayıcı isteği yapıldıktan sonraki hatalar yakalanır.** Model bulunamadı,
+  kimlik hatalı ya da yapılandırma bozuk gibi *uçuş öncesi* hatalar `retry` hook'una hiç
+  gelmez. Canlı testte bilinmeyen bir model seçildiğinde `session.execution.failed` oldu,
+  hook çalışmadı ve hafızaya kayıt düşmedi. Buna karşılık gerçek bir 402 kota hatasında
+  hook çalıştı, `orchestra:fallback:quota` sinyalini yazdı ve deneme yapmadı.
 
 ---
 

@@ -156,10 +156,28 @@ check("ogrenme varsayilan ACIK", DEFAULT_FALLBACK.learnFromFailures, true)
 check("geri donus varsayilan acik", DEFAULT_FALLBACK.restoreOnRecovery, true)
 
 console.log("")
+console.log("")
 console.log("=== 5. YAPILANDIRMA YUKLEME ===")
-const gercek = await loadFallbackConfig(process.cwd())
-check("calisma dizinindeki dosya okundu", gercek.baseDelayMs, 2000)
-check("eksik dizin zarifce varsayilana duser", (await loadFallbackConfig("C:/olmayan/yol")).enabled, true)
+// Kendi degerlerimizi yazip okuyoruz: test depodaki gercek config'e BAGLANMAMALI.
+// Aksi halde config bir yanlisla degistiginde test kendi degerini dogruluyor sanip
+// gecer ve gercek bir regresyonu saklardi.
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+
+const gecici = mkdtempSync(tmpdir() + "/orchestra-cfg-")
+mkdirSync(gecici + "/.opencode", { recursive: true })
+writeFileSync(
+  gecici + "/.opencode/orchestra.json",
+  JSON.stringify({ fallback: { baseDelayMs: 777, autoSwitch: true, chain: ["a/b"] } }),
+  "utf8",
+)
+const okunan = await loadFallbackConfig(gecici)
+check("yazilan deger okundu (baseDelayMs)", okunan.baseDelayMs, 777)
+check("yazilan deger okundu (autoSwitch)", okunan.autoSwitch, true)
+check("yazilan deger okundu (chain)", okunan.chain, ["a/b"])
+check("yazilmayan alanlar varsayilandan gelir", okunan.jitter, DEFAULT_FALLBACK.jitter)
+check("eksik dizin zarifce varsayilana duser", (await loadFallbackConfig(gecici + "/yok")).enabled, true)
+rmSync(gecici, { recursive: true, force: true })
 
 console.log("")
 console.log("SONUC: " + pass + " gecti, " + fail + " kaldi")
