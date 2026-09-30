@@ -71,6 +71,8 @@
     { "action": "websearch", "resource": "*", "effect": "allow" },
     { "action": "skill", "resource": "*", "effect": "allow" },
 
+
+
     // ── 3) Yalnızca mimar alt ajan başlatabilir. Böylece hiçbir işçi rol
     //       kendi ekibini kuramaz, orkestrasyon tek noktadan yönetilir.
     { "action": "subagent", "resource": "*", "effect": "deny" },
@@ -81,6 +83,10 @@
 
   "agents": {
     // Mimarlık rolü .opencode/agents/architect.md dosyasında tanımlıdır.
+
+    "architect": {
+      "description": "ORKESTRATÖR. Karmaşık işleri böler, crew rollerine paralel devreder, doğrular, hatadan ders çıkarır.",
+    },
     //
     // Model stratejisi: TÜM roller opencode/space-bunny-free kullanır — tek model,
     // sıfır maliyet, öngörülebilir davranış. Kademelendirme bilinçli olarak kapalı.

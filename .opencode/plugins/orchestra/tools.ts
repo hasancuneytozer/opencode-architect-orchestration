@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ORCHESTHA araçları.
  *
  * Hafıza motorunu agent'lara açar. Plugin, araç hatalarını kendiliğinden yakalar;
@@ -48,6 +48,16 @@ interface ReportInput {
 
 const asArray = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : [])
 const asString = (value: unknown): string | undefined => (typeof value === "string" ? value : undefined)
+
+/**
+ * `orchestra_report` yalnızca bu rol tarafından çağrılabilir.
+ *
+ * Sebep: rapor TEK yuva olarak tutulur (`state.json → report`) ve /loop onu okuyarak
+ * döngüyü durdurur. Araç global olduğu için bir alt ajan `status: "done"` bildirirse
+ * otonom iş, tamamlanmadan kapanırdı. Genişletmek istersen: burayı ve
+ * `opencode.jsonc` içindeki `orchestra_report` izin kuralını birlikte güncelle.
+ */
+const REPORT_OWNER = "architect"
 
 function lessonLine(lesson: {
   id: string
@@ -194,7 +204,7 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
       description:
         "Otonom döngünün (/loop) her iterasyon sonunda çağrılır. Durumu bildir: continue | done | blocked. " +
         "/loop bu raporu okuyarak döngüyü durdurur ya da devam ettirir.",
-      options: { namespace: "orchestra" },
+      options: { namespace: "orchestra", permission: "orchestra_report" },
       input: {
         ...OBJECT,
         properties: {
@@ -211,8 +221,24 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
         required: ["status", "summary"],
         additionalProperties: false,
       },
-      execute: async (raw) => {
+      execute: async (raw, context) => {
         const input = raw as ReportInput
+        // ── ROL KAPISI ────────────────────────────────────────────────────
+        // Bu aracın TEK yuva olan bir durumu var (state.json -> report) ve
+        // /loop onu okuyarak döngüyü durduruyor. Alt ajanların da erişebildiği
+        // bir araç olduğu için, bir işçi rol status="done" bildirirse otonom iş
+        // erkenden kapanırdı. Bu yüzden yalnızca orkestratör yazabilir.
+        //
+        // İzin kuralına (bkz. opencode.jsonc) ek olarak burada programatik
+        // kapı var: izin boru hattının adı/şekliği değişse bile koruma yerinde
+        // kalsın. `context.agent` aracın çağrıldığı roldür.
+        if (context.agent !== REPORT_OWNER) {
+          return text(
+            `HATA: orchestra_report yalnızca '${REPORT_OWNER}' rolü tarafından çağrılabilir; ` +
+              `bu çağrı ${context.agent} rolünden geldi ve YAZILMADI. ` +
+              `Rolün kendi durumunu raporlaması gerekiyorsa önce mimara aktar.`,
+          )
+        }
         const status = String(input.status) as ReportState["status"]
         if (status !== "continue" && status !== "done" && status !== "blocked") {
           return text("HATA: status 'continue', 'done' ya da 'blocked' olmalı.")

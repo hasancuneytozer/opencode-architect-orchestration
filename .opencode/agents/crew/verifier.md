@@ -29,6 +29,12 @@ permissions:
   - action: shell
     resource: "git reset --hard *"
     effect: deny
+  # orchestra_report TEK yuva olan bir durumu yazar ve /loop onu okuyarak döngüyü
+  # durdurur. Yalnizca mimar çağırabilir; araç zaten ayrica programatik olarak
+  # da bunu denetler. Bu izin onu modele hiç göstermeyi de engeller.
+  - action: orchestra_report
+    resource: "*"
+    effect: deny
 ---
 
 Sen **doğrulayıcısın**. Baban senden "gerçekten çalışıyor mu?" sorusunun cevabını istiyor.

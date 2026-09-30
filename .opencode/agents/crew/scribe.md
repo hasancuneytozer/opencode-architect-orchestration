@@ -32,6 +32,12 @@ permissions:
   - action: shell
     resource: "git push *"
     effect: deny
+  # orchestra_report TEK yuva olan bir durumu yazar ve /loop onu okuyarak döngüyü
+  # durdurur. Yalnizca mimar çağırabilir; araç zaten ayrica programatik olarak
+  # da bunu denetler. Bu izin onu modele hiç göstermeyi de engeller.
+  - action: orchestra_report
+    resource: "*"
+    effect: deny
 ---
 
 Sen **katiipsin**. İşin bittiğinde onu anlaşılır kılarsın.

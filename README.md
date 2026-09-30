@@ -214,7 +214,19 @@ Modelin disiplinine bırakılsaydı yakalama güvenilmez olurdu.
 | `orchestra_recall` | Hafızada ara. Otomatik enjeksiyon zaten ilgili dersleri verir. |
 | `orchestra_lesson` | Uygulanabilir kural yaz; `promote` ile ham hatayı derse çevir. |
 | `orchestra_forget` | Yanlış/eskimiş dersi emekliye ayır. |
-| `orchestra_report` | `/loop` döngüsünün durdurma sinyali. |
+| `orchestra_report` | `/loop` döngüsünün durdurma sinyali. **Yalnızca mimar çağırabilir.** |
+
+> **`orchestra_report` neden mimara özel?** Rapor TEK yuva olarak tutulur
+> (`state.json → report`) ve `/loop` onu okuyarak döngüyü durdurur. Araç global
+> olduğu için, bir alt ajan `status: "done"` bildirseydi otonom iş tamamlanmadan kapanırdı.
+> İki katmanlı koruma var:
+> 1. **İzin:** her `crew/*` rolünün frontmatter'ında `orchestra_report → deny`. Araç
+>    modelin listesinde hiç görünmez, denemeye de gerek kalmaz.
+> 2. **Programatik kapı:** aracın kendisi `context.agent` değerini denetler; rol mimar
+>    değilse yazmaz ve gerekçeyi döndürür.
+>
+> Canlı doğrulama: `crew/maker` alt ajanına rapor çağırması söylendi; katalogda aracı
+> görmedi, çağırmayı denedi ve `Unknown tool` aldı. `state.json` değişmedi.
 
 ## Sıfırlamak / düzenlemek
 
