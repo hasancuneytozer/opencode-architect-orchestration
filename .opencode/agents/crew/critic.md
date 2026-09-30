@@ -1,7 +1,7 @@
 ---
 description: "Red-team eleştirmen. Teslim edilmeden önce ikinci göz — doğruluk, geri dönüş maliyeti, kenar durumlar, regresyon ve örtük varsayımlar. Değişiklik yapmaz, savunmaz, kanıt ister."
 mode: subagent
-model: opencode/longcat-2.5-preview-free
+model: opencode/space-bunny-free
 color: "#fb7185"
 steps: 40
 permissions:

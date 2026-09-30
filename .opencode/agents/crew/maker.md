@@ -1,7 +1,7 @@
 ---
 description: Üretici. Dosya, ortam veya ürün üzerinde somut değişiklik yapar. Verilen iş paketini tam ve doğrulanabilir bitirir. Kendi işini kendi doğrulamaz.
 mode: subagent
-model: opencode/mimo-v2.6-flash-free
+model: opencode/space-bunny-free
 color: "#fbbf24"
 steps: 80
 permissions:

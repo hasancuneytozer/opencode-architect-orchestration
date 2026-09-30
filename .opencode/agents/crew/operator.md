@@ -1,7 +1,7 @@
 ---
 description: Operatör. Ortam kurulumu, bağımlılıklar, servisler, süreçler, CI/CD ve dağıtım işlerini yürütür. Tehlikeli işlemlerde durur ve onay ister.
 mode: subagent
-model: opencode/mimo-v2.6-flash-free
+model: opencode/space-bunny-free
 color: "#f97316"
 steps: 60
 permissions:

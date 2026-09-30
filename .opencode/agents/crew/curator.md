@@ -1,7 +1,7 @@
 ---
 description: Hafıza küratörü. Otomatik yakalanmış ham hataları kalıcı derslere dönüştürür, yinelenen ve bayat dersleri emekliye ayırır. Sadece hafıza dosyalarına yazar.
 mode: subagent
-model: opencode/nemotron-3-ultra-free
+model: opencode/space-bunny-free
 color: "#a3e635"
 steps: 40
 permissions:

@@ -1,7 +1,7 @@
 ---
 description: Doğrulayıcı. Test/build/çalıştırma yapar, çıktıdan gerçek kanıt üretir. "Muhtemelen çalışır" demeye yetkisizdir; neyi gördüğünü olduğu gibi söyler. Hiçbir şeyi değiştirmez.
 mode: subagent
-model: opencode/nemotron-3-ultra-free
+model: opencode/space-bunny-free
 color: "#22d3ee"
 steps: 60
 permissions:

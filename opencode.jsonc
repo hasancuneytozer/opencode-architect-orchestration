@@ -24,7 +24,7 @@
   // alt ajanları etkiler; birincil ajanın modeli session'da saklanır ve rol alanı
   // onu ezmeyebilir. Bu satır olmadan yeni session, sunucunun varsayılan modeline
   // (ör. ücretli bir sağlayıcı) düşebilir.
-  "model": "opencode/longcat-2.5-preview-free",
+  "model": "opencode/space-bunny-free",
 
   // Paralel yazma çakışmalarını çözmek için ayrı çalışma ağaçları bu dizine açılır.
   "worktree": {
@@ -81,17 +81,21 @@
 
   "agents": {
     // Mimarlık rolü .opencode/agents/architect.md dosyasında tanımlıdır.
-    // Model eşlemesi (yalnızca ücretsiz modeller):
     //
-    //   mimar / eleştirmen / analist  → opencode/longcat-2.5-preview-free
-    //   araştırmacı / doğrulayıcı / küratör → opencode/nemotron-3-ultra-free
-    //   üretici / operatör            → opencode/mimo-v2.6-flash-free
-    //   keşifçi                      → opencode/nemotron-3.5-lightning-free
-    //   katiip                       → opencode/ling-3.0-flash-fin-free
+    // Model stratejisi: TÜM roller opencode/space-bunny-free kullanır — tek model,
+    // sıfır maliyet, öngörülebilir davranış. Kademelendirme bilinçli olarak kapalı.
     //
-    // Ücretli modele geçmek için: `opencode models` çıktısından bir id seç ve
-    // rol dosyasının `model:` satırını değiştir. Session'da seçili model her
-    // zaman rolün modelini ezer; bu normal davranıştır.
+    // Kademelendirmek istersen (muhakeme isteyen rollere güçlü, kalabalık rollere
+    // hızlı model), rol dosyalarının `model:` satırını ayrı ayrı değiştir:
+    //
+    //   architect / crew/analyst / crew/critic            → opencode/longcat-2.5-preview-free
+    //   crew/researcher / crew/verifier / crew/curator     → opencode/nemotron-3-ultra-free
+    //   crew/maker / crew/operator                          → opencode/mimo-v2.6-flash-free
+    //   crew/scout                                          → opencode/nemotron-3.5-lightning-free
+    //   crew/scribe                                         → opencode/ling-3.0-flash-fin-free
+    //
+    // Not: session'da seçili model her zaman rolün modelini ezer. Bu yüzden
+    // yukarıdaki `model` satırı yeni oturumların varsayılanını da belirler.
     "architect": {
       "description": "ORKESTRATÖR. Karmaşık işleri böler, crew rollerine paralel devreder, doğrular, hatadan ders çıkarır."
     }

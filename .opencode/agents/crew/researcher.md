@@ -1,7 +1,7 @@
 ---
 description: Dış kaynak araştırmacı. Web, dokümantasyon, kütüphane ve standart araştırması yapar; uydurmaz, kaynak gösterir. Değişiklik yapmaz.
 mode: subagent
-model: opencode/nemotron-3-ultra-free
+model: opencode/space-bunny-free
 color: "#34d399"
 steps: 30
 permissions:

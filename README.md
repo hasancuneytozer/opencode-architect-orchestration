@@ -116,21 +116,39 @@ silmek. Kod bilmene gerek yok.
 
 ## Kadro
 
-| Rol | Ne yapar | Değiştirir mi | Model (ücretsiz) |
-| --- | --- | --- | --- |
-| `architect` | böler, dağıtır, sentezler, doğrulatır | evet | `longcat-2.5-preview-free` |
-| `crew/scout` | keşif, haritalama | hayır | `nemotron-3.5-lightning-free` |
-| `crew/analyst` | seçenek karşılaştırma, karar zemini | hayır | `longcat-2.5-preview-free` |
-| `crew/researcher` | web/doküman araştırması, kaynaklı | hayır | `nemotron-3-ultra-free` |
-| `crew/critic` | red-team, kalite, regresyon | hayır | `longcat-2.5-preview-free` |
-| `crew/maker` | dosya/ortam/ürün değişikliği | evet | `mimo-v2.6-flash-free` |
-| `crew/verifier` | test/build, gerçek kanıt | **hayır** (çalıştırır) | `nemotron-3-ultra-free` |
-| `crew/curator` | hafızayı düzenler | sadece hafıza | `nemotron-3-ultra-free` |
-| `crew/scribe` | dokümantasyon, rapor | evet | `ling-3.0-flash-fin-free` |
-| `crew/operator` | ortam, servis, dağıtım | evet | `mimo-v2.6-flash-free` |
+Tüm roller **tek model** kullanır: `opencode/space-bunny-free`. Sıfır maliyet, öngörülebilir
+davranış; kademelendirme bilinçli olarak kapalı.
 
-Ücretli modele geçmek için rol dosyasının `model:` satırını değiştir
-(`opencode models` ile liste). Session'da seçili model her zaman rolün modelini ezer.
+| Rol | Ne yapar | Değiştirir mi | Model |
+| --- | --- | --- | --- |
+| `architect` | böler, dağıtır, sentezler, doğrulatır | evet | `space-bunny-free` |
+| `crew/scout` | keşif, haritalama | hayır | `space-bunny-free` |
+| `crew/analyst` | seçenek karşılaştırma, karar zemini | hayır | `space-bunny-free` |
+| `crew/researcher` | web/doküman araştırması, kaynaklı | hayır | `space-bunny-free` |
+| `crew/critic` | red-team, kalite, regresyon | hayır | `space-bunny-free` |
+| `crew/maker` | dosya/ortam/ürün değişikliği | evet | `space-bunny-free` |
+| `crew/verifier` | test/build, gerçek kanıt | **hayır** (çalıştırır) | `space-bunny-free` |
+| `crew/curator` | hafızayı düzenler | sadece hafıza | `space-bunny-free` |
+| `crew/scribe` | dokümantasyon, rapor | evet | `space-bunny-free` |
+| `crew/operator` | ortam, servis, dağıtım | evet | `space-bunny-free` |
+
+### Model değiştirmek
+
+Rol dosyasının `model:` satırını değiştir. `opencode models` ile liste alabilirsin.
+
+Kademelendirmek istersen (muhakeme isteyen rollere güçlü, kalabalık rollere hızlı model):
+
+| Roller | Model |
+| --- | --- |
+| `architect`, `crew/analyst`, `crew/critic` | `opencode/longcat-2.5-preview-free` |
+| `crew/researcher`, `crew/verifier`, `crew/curator` | `opencode/nemotron-3-ultra-free` |
+| `crew/maker`, `crew/operator` | `opencode/mimo-v2.6-flash-free` |
+| `crew/scout` | `opencode/nemotron-3.5-lightning-free` |
+| `crew/scribe` | `opencode/ling-3.0-flash-fin-free` |
+
+> **Session'daki model her zaman rolün modelini ezer.** `opencode.jsonc` içindeki `model`
+> satırı yalnızca yeni oturumların varsayılanını belirler; eldeki session'ın modeli TUI'da
+> seçtiğin modeldir. Yanlış modelle açılmış bir session'da rol ataması işe yaramaz.
 
 ### Yeni rol ekle
 

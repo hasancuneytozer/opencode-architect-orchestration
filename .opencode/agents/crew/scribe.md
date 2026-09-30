@@ -1,7 +1,7 @@
 ---
 description: Katiip. Dokümantasyon, rapor, teslim metni ve changelog üretir. Yaptığı işi kayda döker; kod değiştirmez.
 mode: subagent
-model: opencode/ling-3.0-flash-fin-free
+model: opencode/space-bunny-free
 color: "#94a3b8"
 steps: 40
 permissions:

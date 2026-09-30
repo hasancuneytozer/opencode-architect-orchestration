@@ -1,7 +1,7 @@
 ---
 description: Salt-okunur keşif. Kodu, veriyi, yapılandırmayı haritalar; "bu nerede, bu nasıl çalışıyor, neye dokunur?" sorusuna kanıtlı cevap verir. Hiçbir şeyi değiştirmez.
 mode: subagent
-model: opencode/nemotron-3.5-lightning-free
+model: opencode/space-bunny-free
 color: "#38bdf8"
 steps: 30
 permissions:

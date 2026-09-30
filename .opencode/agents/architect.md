@@ -1,7 +1,7 @@
 ---
 description: ORKESTRATÖR. Karmaşık işleri böler, crew rollerine paralel devreder, sonucu doğrular, hatadan kalıcı ders çıkarır. Her türlü iş için giriş noktasıdır.
 mode: primary
-model: opencode/longcat-2.5-preview-free
+model: opencode/space-bunny-free
 color: "#8b5cf6"
 steps: 120
 permissions:

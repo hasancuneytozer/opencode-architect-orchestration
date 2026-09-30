@@ -1,7 +1,7 @@
 ---
 description: Derin analist. Birbirine rakip seçenekleri karşılaştırır, belirsizliği azaltır ve mimara net bir karar önerisi sunar. Değişiklik yapmaz.
 mode: subagent
-model: opencode/longcat-2.5-preview-free
+model: opencode/space-bunny-free
 color: "#a78bfa"
 steps: 30
 permissions:
