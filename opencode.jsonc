@@ -1,0 +1,99 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ORCHESTRA — mimar-merkezli orkestrasyon sistemi
+  //
+  // Katmanlar:
+  //   rol     → .opencode/agents/architect.md + .opencode/agents/crew/*.md
+  //   beceri  → .opencode/skills/*/SKILL.md        (iş bölümü, döngü, ders, kadro)
+  //   komut   → .opencode/commands/*.md             (/orchestrate /auto /recall /standup /cast)
+  //   hafıza  → .opencode/plugins/orchestra/        (otomatik hata yakalama + otonom /loop)
+  //   veri    → .opencode/memory/                   (lessons.jsonl, state.json)
+  //
+  // Roller ve beceriler dosya tabanlıdır: eklemek/çıkarmak = dosya eklemek/silmek.
+  // Plugin otomatik keşfedilir (.opencode/plugins/), burada tekrar listelemek
+  // iki kez yüklenmesine yol açabilir; bu yüzden `plugins` dizisine dokunulmaz.
+  //
+  // Bu klasörü olduğu gibi başka bir projeye kopyalarsan sistem tamamen taşınır.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  "default_agent": "architect",
+
+  // Yeni oturumların varsayılan modeli. Rol dosyalarındaki `model:` alanı YALNIZCA
+  // alt ajanları etkiler; birincil ajanın modeli session'da saklanır ve rol alanı
+  // onu ezmeyebilir. Bu satır olmadan yeni session, sunucunun varsayılan modeline
+  // (ör. ücretli bir sağlayıcı) düşebilir.
+  "model": "opencode/longcat-2.5-preview-free",
+
+  // Paralel yazma çakışmalarını çözmek için ayrı çalışma ağaçları bu dizine açılır.
+  "worktree": {
+    "directory": "../.worktrees"
+  },
+
+  "permissions": [
+    // ── 1) Kesin yasaklar. Rol dosyaları da kendi yasaklarını tekrarlar; bu
+    //       liste, gelecekte eklenebilecek her rol için taban güvenliktir.
+    { "action": "shell", "resource": "rm -rf /*", "effect": "deny" },
+    { "action": "shell", "resource": "rm -rf ~*", "effect": "deny" },
+    { "action": "shell", "resource": "rm -rf C:*", "effect": "deny" },
+    { "action": "shell", "resource": "rm -rf /c/*", "effect": "deny" },
+    { "action": "shell", "resource": "rm -rf --no-preserve-root*", "effect": "deny" },
+    { "action": "shell", "resource": "Remove-Item * -Recurse *", "effect": "deny" },
+    { "action": "shell", "resource": "git push *", "effect": "deny" },
+    { "action": "shell", "resource": "git push --force*", "effect": "deny" },
+    { "action": "shell", "resource": "git reset --hard *", "effect": "deny" },
+    { "action": "shell", "resource": "git clean *", "effect": "deny" },
+    { "action": "shell", "resource": "npm publish *", "effect": "deny" },
+    { "action": "shell", "resource": "pnpm publish *", "effect": "deny" },
+    { "action": "shell", "resource": "yarn publish *", "effect": "deny" },
+    { "action": "shell", "resource": "curl *|sh*", "effect": "deny" },
+    { "action": "shell", "resource": "wget *|sh*", "effect": "deny" },
+
+    { "action": "edit", "resource": "*.env", "effect": "deny" },
+    { "action": "edit", "resource": "*.env.*", "effect": "deny" },
+    { "action": "edit", "resource": "**/id_rsa*", "effect": "deny" },
+    { "action": "edit", "resource": "**/*.pem", "effect": "deny" },
+    { "action": "edit", "resource": "**/*.key", "effect": "deny" },
+    { "action": "edit", "resource": "**/.npmrc", "effect": "deny" },
+    { "action": "edit", "resource": "**/.git/config", "effect": "deny" },
+
+    // ── 2) Otonom çalışma varsayılanı. Sistem "bitene kadar" kendi başına
+    //       çalışabilsin diye onay istemiyor; güvenlik 1. bloktaki yasaklarla
+    //       sağlanır. Daha temkinli bir kurulum istersen bu satırı "allow"
+    //       yerine "ask" yap: her shell komutu onay ister.
+    { "action": "shell", "resource": "*", "effect": "allow" },
+    { "action": "edit", "resource": "*", "effect": "allow" },
+    { "action": "read", "resource": "*", "effect": "allow" },
+    { "action": "glob", "resource": "*", "effect": "allow" },
+    { "action": "grep", "resource": "*", "effect": "allow" },
+    { "action": "webfetch", "resource": "*", "effect": "allow" },
+    { "action": "websearch", "resource": "*", "effect": "allow" },
+    { "action": "skill", "resource": "*", "effect": "allow" },
+
+    // ── 3) Yalnızca mimar alt ajan başlatabilir. Böylece hiçbir işçi rol
+    //       kendi ekibini kuramaz, orkestrasyon tek noktadan yönetilir.
+    { "action": "subagent", "resource": "*", "effect": "deny" },
+    { "action": "subagent", "resource": "crew/*", "effect": "allow" },
+    { "action": "subagent", "resource": "explore", "effect": "allow" },
+    { "action": "subagent", "resource": "general", "effect": "allow" }
+  ],
+
+  "agents": {
+    // Mimarlık rolü .opencode/agents/architect.md dosyasında tanımlıdır.
+    // Model eşlemesi (yalnızca ücretsiz modeller):
+    //
+    //   mimar / eleştirmen / analist  → opencode/longcat-2.5-preview-free
+    //   araştırmacı / doğrulayıcı / küratör → opencode/nemotron-3-ultra-free
+    //   üretici / operatör            → opencode/mimo-v2.6-flash-free
+    //   keşifçi                      → opencode/nemotron-3.5-lightning-free
+    //   katiip                       → opencode/ling-3.0-flash-fin-free
+    //
+    // Ücretli modele geçmek için: `opencode models` çıktısından bir id seç ve
+    // rol dosyasının `model:` satırını değiştir. Session'da seçili model her
+    // zaman rolün modelini ezer; bu normal davranıştır.
+    "architect": {
+      "description": "ORKESTRATÖR. Karmaşık işleri böler, crew rollerine paralel devreder, doğrular, hatadan ders çıkarır."
+    }
+  }
+}

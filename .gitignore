@@ -1,0 +1,5 @@
+node_modules/
+.opencode/memory/state.json
+.worktrees/
+*.log
+.DS_Store

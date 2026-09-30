@@ -1,0 +1,18 @@
+{
+  "name": "opencode-architect-system",
+  "version": "1.0.0",
+  "description": "opencode icin mimar-merkezli, hata-ogrenen, paralel ve otonom orkestrasyon sistemi",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit && opencode debug agents && opencode plugin list"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@opencode/plugin": "^2.0.20"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}
