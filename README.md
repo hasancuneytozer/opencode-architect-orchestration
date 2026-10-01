@@ -30,15 +30,17 @@ cp -r <bu depo>/.opencode <sizin projeniz>/
 cp    <bu depo>/opencode.jsonc <sizin projeniz>/
 ```
 
-Yalnızca tek bir projede kullanacaksanız kopyalamak yeterlidir; `git` gerekmez. Depoyu
-submodül olarak eklemek isterseniz:
+Yalnızca tek bir projede kullanacaksanız kopyalamak yeterlidir; `git` gerekmez.
+
+Depoyu submodül olarak eklemek isterseniz (önerilmez):
 
 ```sh
 git submodule add https://github.com/hasancuneytozer/opencode-architect-orchestration.git .opencode
 ```
 
-Submodül yöntemi **önerilmez**: `.opencode/` altındaki roller, beceriler, komutlar ve plugin
-gerekirse elle düzenlenir. Submodül güncellemeleri bu dosyaları sessizce geri alabilir.
+Neden önerilmez: `.opencode/` altındaki roller, beceriler, komutlar ve plugin gerektiğinde
+elle düzenlenir. Submodül güncellemeleri bu dosyaları sessizce geri alabilir. Kopyalama
+yöntemi yerelde kalır, sürüm güncellemesi sizde olur.
 
 ### Gereksinimler
 
@@ -46,7 +48,7 @@ gerekirse elle düzenlenir. Submodül güncellemeleri bu dosyaları sessizce ger
 | --- | --- |
 | opencode | 2.x (V2 plugin API'si) |
 | Node.js | 22+ |
-| Model | `opencode.jsonc` içinde tanımlı; varsayılan `opencode/longcat-2.5-preview-free` (ücretsiz) |
+| Model | `opencode.jsonc` içinde tanımlı; varsayılan `opencode/space-bunny-free` (ücretsiz) |
 
 Ücretli model kullanmak isterseniz `opencode.jsonc` içindeki `model` satırını ve rol
 dosyalarındaki `model:` alanlarını değiştirin. Aynı anda role özel model atamak için
@@ -424,15 +426,54 @@ alıyorsa yalnızca onun ayarları değişir:
 
 ## Güvenlik ve izinler
 
-
-`opencode.jsonc` iki bloktan oluşur:
+`opencode.jsonc` üç bloktan oluşur:
 
 1. **Kesin yasaklar.** `rm -rf /`, `git push`, `git reset --hard`, `npm publish`,
    `curl | sh`, `.env`/`.pem`/`.key` yazımı — rol dosyaları da aynı yasakları tekrar eder,
    çünkü rol izinleri tabanın üzerine eklenir.
 2. **Otonomi.** Kalan her şey `allow`. Sistem "bitene kadar" onay istemeden çalışabilsin diye.
+3. **Mimari kısıt.** Alt ajan yalnızca mimar tarafından başlatılabilir.
 
 Temkinli bir kurulum istersen 2. bloktaki `shell: allow` satırını `ask` yap: her komut onay ister.
+
+### Neden bazen yine de onay ister?
+
+İki ayrı şey karışıyor:
+
+| Mekanizma | Kapsam | Nerede |
+| --- | --- | --- |
+| `permissions` config | kalıcı, tüm oturumlar | `opencode.jsonc` |
+| `--auto` bayrağı | tek oturum | `opencode --auto` |
+
+Kural şu: **hiçbir kural eşleşmezse opencode `ask` varsayar.** "Kural yazmadım" = "serbest"
+değil, "sor" demektir. opencode'un temel varsayılanında `external_directory * → ask` vardır —
+proje kökü dışındaki her `read`/`edit`/`write` buradan kilitlenir. Bu yüzden 2. blokta şu
+satırlar var:
+
+```jsonc
+{ "action": "external_directory", "resource": "*", "effect": "allow" },
+{ "action": "question",           "resource": "*", "effect": "allow" },
+{ "action": "execute",            "resource": "*", "effect": "allow" },
+{ "action": "shotcut_*",          "resource": "*", "effect": "allow" },
+{ "action": "blender_*",          "resource": "*", "effect": "allow" },
+{ "action": "blenderlab_*",       "resource": "*", "effect": "allow" },
+```
+
+Yeni bir MCP sunucusu eklersen onun `<sunucu>_*` girdisini de buraya yaz; yoksa o sunucunun
+araçları her çağrıda onay ister.
+
+### `--auto` bayrağı
+
+Tam otonom, ama oturuma özel çalıştırmak istersen:
+
+```sh
+opencode --auto                    # bu oturumda ask'a düşen hiçbir şey sormaz
+opencode run --auto "testleri koştur"
+```
+
+`--auto` yalnızca `ask` duranları onaylar; 1. bloktaki `deny` kurallarına **dokunmaz**.
+`git push` ve `rm -rf` yasakları bayrakla da reddedilir. Kalıcı bir karşılığı yoktur —
+her oturumda yazman gerekir.
 
 ---
 
