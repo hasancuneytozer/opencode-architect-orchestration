@@ -40,8 +40,10 @@
     { "action": "shell", "resource": "rm -rf /c/*", "effect": "deny" },
     { "action": "shell", "resource": "rm -rf --no-preserve-root*", "effect": "deny" },
     { "action": "shell", "resource": "Remove-Item * -Recurse *", "effect": "deny" },
-    { "action": "shell", "resource": "git push *", "effect": "deny" },
+    // Düz push serbest; YANLISLIKLA uzaktaki geçmişi ezmeyi engellemek için
+    // zorlamalı varyantlar yasak. --force-with-lease de kapsamdadır.
     { "action": "shell", "resource": "git push --force*", "effect": "deny" },
+    { "action": "shell", "resource": "git push -f*", "effect": "deny" },
     { "action": "shell", "resource": "git reset --hard *", "effect": "deny" },
     { "action": "shell", "resource": "git clean *", "effect": "deny" },
     { "action": "shell", "resource": "npm publish *", "effect": "deny" },

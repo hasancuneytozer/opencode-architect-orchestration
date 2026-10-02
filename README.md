@@ -284,8 +284,9 @@ aynı sonuç/kanıtla dönmesi. Yani takılan bir döngü sonsuza kadar yakmaz.
 Rap vermezsen döngü seni bekler ve iki tur sonra kendini durdurur. Bu bir hata değil, supap.
 
 Otonomi, onaylanmamış yıkıcı işlemler için kullanılmaz: üretim dağıtımı, veri silme, kimlik
-yazma, `git push` gibi işlerde `blocked` durur. `opencode.jsonc` bu komutları tüm roller için
-`deny` eder.
+yazma, uzaktaki geçmişi ezma gibi işlerde `blocked` durur. `opencode.jsonc` bunları tüm roller
+için `deny` eder. Düz `git push` bu kapsamda değildir — commit'i mimar kendi gönderir;
+zorlamalı varyantlar (`--force`, `-f`) yine yasaktır.
 
 ---
 
@@ -428,9 +429,13 @@ alıyorsa yalnızca onun ayarları değişir:
 
 `opencode.jsonc` üç bloktan oluşur:
 
-1. **Kesin yasaklar.** `rm -rf /`, `git push`, `git reset --hard`, `npm publish`,
-   `curl | sh`, `.env`/`.pem`/`.key` yazımı — rol dosyaları da aynı yasakları tekrar eder,
+1. **Kesin yasaklar.** `rm -rf /`, `git reset --hard`, `git clean`, `npm publish`,
+   `curl | sh`, `.env`/`.pem`/`.key` yazımı, **zorlamalı push**
+   (`git push --force`, `git push -f`) — rol dosyaları da aynı yasakları tekrar eder,
    çünkü rol izinleri tabanın üzerine eklenir.
+
+   Düz `git push` **serbesttir**: mimar commit'i kendi gönderir. Yalnızca zorlamalı
+   varyantlar yasaktır, çünkü onlar uzaktaki geçmişi ezer.
 2. **Otonomi.** Kalan her şey `allow`. Sistem "bitene kadar" onay istemeden çalışabilsin diye.
 3. **Mimari kısıt.** Alt ajan yalnızca mimar tarafından başlatılabilir.
 
@@ -472,7 +477,8 @@ opencode run --auto "testleri koştur"
 ```
 
 `--auto` yalnızca `ask` duranları onaylar; 1. bloktaki `deny` kurallarına **dokunmaz**.
-`git push` ve `rm -rf` yasakları bayrakla da reddedilir. Kalıcı bir karşılığı yoktur —
+`rm -rf /`, `npm publish` ve zorlamalı push yasakları bayrakla da reddedilir. Kalıcı bir
+karşılığı yoktur —
 her oturumda yazman gerekir.
 
 ---

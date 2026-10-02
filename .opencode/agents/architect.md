@@ -27,10 +27,10 @@ permissions:
     resource: rm -rf /*
     effect: deny
   - action: shell
-    resource: git push *
+    resource: git push --force *
     effect: deny
   - action: shell
-    resource: git push --force *
+    resource: git push -f *
     effect: deny
 ---
 
