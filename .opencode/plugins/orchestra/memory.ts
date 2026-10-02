@@ -268,8 +268,8 @@ export class Memory {
     this.lessonsStamp = await stampOf(this.lessonsFile)
   }
 
+  /** Yalnızca diske yazar. Yeniden okuma yapmaz; çağıran zaten resync etmiş olmalı. */
   private async persistStore(): Promise<void> {
-    await this.resync(this.stateFile, this.storeStamp, (value) => (this.storeStamp = value))
     await fs.writeFile(this.stateFile, JSON.stringify(this.store, null, 2) + "\n", "utf8")
     this.storeStamp = await stampOf(this.stateFile)
   }
@@ -548,6 +548,9 @@ export class Memory {
 
   async setLoop(patch: Partial<LoopState>): Promise<LoopState> {
     return this.write(async () => {
+      // Sıra commit() ile aynı: önce harici değişikliği oku, SONRA patch'i uygula.
+      // Aksi halde resync'in reload'u henüz uygulanmamış patch'i silerdi.
+      await this.resync(this.stateFile, this.storeStamp, (value) => (this.storeStamp = value))
       this.store.loop = { ...this.store.loop, ...patch, updatedAt: now() }
       await this.persistStore()
       return this.store.loop
@@ -556,6 +559,7 @@ export class Memory {
 
   async setReport(report: ReportState): Promise<ReportState> {
     return this.write(async () => {
+      await this.resync(this.stateFile, this.storeStamp, (value) => (this.storeStamp = value))
       this.store.report = report
       await this.persistStore()
       return report
@@ -564,6 +568,7 @@ export class Memory {
 
   async clearReport(): Promise<void> {
     await this.write(async () => {
+      await this.resync(this.stateFile, this.storeStamp, (value) => (this.storeStamp = value))
       delete this.store.report
       await this.persistStore()
     })
@@ -572,6 +577,7 @@ export class Memory {
   /** Kayıt adımlarının sonucunu not eder. Sessiz arıza üretmemek içindir. */
   async setDiagnostics(diagnostics: Diagnostics): Promise<void> {
     return this.write(async () => {
+      await this.resync(this.stateFile, this.storeStamp, (value) => (this.storeStamp = value))
       this.store.diagnostics = diagnostics
       await this.persistStore()
     })

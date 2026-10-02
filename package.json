@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --no-warnings scripts/orchestra.test.mjs",
+    "test": "node --experimental-strip-types --no-warnings scripts/orchestra.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/memory.test.mjs",
     "check": "tsc --noEmit && npm test && opencode debug agents && opencode plugin list"
   },
   "license": "MIT",
