@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vite/
+
+# Yerel veri: veritabanı, yüklenen medya, üretilen kapak/thumbnail dosyaları.
+data/
+storage/
+
+# Sırlar. opencode.jsonc bu deseni zaten reddediyor; burada da bir savunma katmanı.
+.env
+.env.*
+!.env.example
+
+*.log

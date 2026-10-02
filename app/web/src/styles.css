@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/**
+ * Koyu tema. Yönetim paneli: süs yok, veri yoğun.
+ * Renkler `@theme` üzerinden Tailwind yardımcı sınıfları olur:
+ * `bg-panel`, `text-muted`, `border-line`, `text-danger` ...
+ */
+@theme {
+  /* yüzeyler */
+  --color-base: #0b0e13;
+  --color-panel: #121722;
+  --color-elev: #1a2130;
+  --color-line: #273143;
+  --color-line-soft: #1e2634;
+
+  /* metin */
+  --color-fg: #e6edf6;
+  --color-muted: #93a2b8;
+  --color-faint: #6a7890;
+
+  /* vurgu */
+  --color-accent: #5b9dff;
+  --color-accent-soft: #1e3050;
+
+  /* durum renkleri — HER ZAMAN metin rozetiyle birlikte kullanılır (renk tek başına anlam taşımaz) */
+  --color-idle: #7c8794;
+  --color-info: #58a6ff;
+  --color-ok: #3fb950;
+  --color-warn: #d29922;
+  --color-danger: #f85149;
+  --color-orange: #db8a3c;
+  --color-muted-tone: #4b5565;
+
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-base);
+  color: var(--color-fg);
+  font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Klavye gezinmesi: odak halkası her yerde görünür. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* hareketli durum rozetleri için ince bir nabız */
+@keyframes sp-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.sp-live {
+  animation: sp-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-live {
+    animation: none;
+  }
+}
+
+/* kaydırma çubukları ince olsun, veri alanı çok yer kaplasın */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2c3749 transparent;
+}

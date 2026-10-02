@@ -1,0 +1,48 @@
+{
+  "name": "social-publish-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.16" },
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "tsx watch src/main.ts",
+    "dev:web": "vite --config web/vite.config.ts",
+    "start": "node --enable-source-maps dist/main.js",
+    "build": "tsc -p tsconfig.build.json && vite build --config web/vite.config.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "migrate": "tsx src/cli/migrate.ts",
+    "sp": "tsx src/cli/index.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "latest",
+    "@fastify/multipart": "latest",
+    "@fastify/static": "latest",
+    "better-sqlite3": "latest",
+    "dotenv": "latest",
+    "fastify": "latest",
+    "ffmpeg-static": "latest",
+    "ffprobe-static": "latest",
+    "pino": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "latest",
+    "@types/better-sqlite3": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "concurrently": "latest",
+    "pino-pretty": "latest",
+    "tailwindcss": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "vitest": "latest"
+  }
+}

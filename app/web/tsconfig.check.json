@@ -1,0 +1,8 @@
+{
+  "$comment": "Sadece web/ yüzeyini denetlemek için. Kök tsconfig.json KORUMALI ve src/ altındaki başka işçinin yarım dosyası (src/http/media.ts) hata veriyor; bu dosya web/ + test/web/ kapsamını tek başına kontrol eder.",
+  "extends": "../tsconfig.json",
+  "include": ["../web/**/*.ts", "../web/**/*.tsx", "../test/web/**/*.ts"],
+  "compilerOptions": {
+    "types": ["node", "vitest/globals"]
+  }
+}
