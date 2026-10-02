@@ -71,6 +71,20 @@
     { "action": "websearch", "resource": "*", "effect": "allow" },
     { "action": "skill", "resource": "*", "effect": "allow" },
 
+    // Hiçbir kural eşleşmezse opencode etkiyi "ask" varsayar — izin yazmamak
+    // "serbest" değil, "onay iste" demektir. Aşağıdakiler bu yüzden şart:
+    //   external_directory -> proje kökü/worktree dışındaki her read/edit/write
+    //   question, execute    -> onay sorusu ve Code Mode
+    //   <server>_<tool>      -> MCP araçları (her sunucu için ayrı girdi)
+    { "action": "external_directory", "resource": "*", "effect": "allow" },
+    { "action": "question", "resource": "*", "effect": "allow" },
+    { "action": "execute", "resource": "*", "effect": "allow" },
+
+    // MCP sunucuları. Sunucu adı olmayan bir MCP aracı bu kalıplara girmez.
+    { "action": "shotcut_*", "resource": "*", "effect": "allow" },
+    { "action": "blender_*", "resource": "*", "effect": "allow" },
+    { "action": "blenderlab_*", "resource": "*", "effect": "allow" },
+
     // ── 3) Yalnızca mimar alt ajan başlatabilir. Böylece hiçbir işçi rol
     //       kendi ekibini kuramaz, orkestrasyon tek noktadan yönetilir.
     { "action": "subagent", "resource": "*", "effect": "deny" },

@@ -30,15 +30,17 @@ cp -r <bu depo>/.opencode <sizin projeniz>/
 cp    <bu depo>/opencode.jsonc <sizin projeniz>/
 ```
 
-Yalnızca tek bir projede kullanacaksanız kopyalamak yeterlidir; `git` gerekmez. Depoyu
-submodül olarak eklemek isterseniz:
+Yalnızca tek bir projede kullanacaksanız kopyalamak yeterlidir; `git` gerekmez.
+
+Depoyu submodül olarak eklemek isterseniz (önerilmez):
 
 ```sh
 git submodule add https://github.com/hasancuneytozer/opencode-architect-orchestration.git .opencode
 ```
 
-Submodül yöntemi **önerilmez**: `.opencode/` altındaki roller, beceriler, komutlar ve plugin
-gerekirse elle düzenlenir. Submodül güncellemeleri bu dosyaları sessizce geri alabilir.
+Neden önerilmez: `.opencode/` altındaki roller, beceriler, komutlar ve plugin gerektiğinde
+elle düzenlenir. Submodül güncellemeleri bu dosyaları sessizce geri alabilir. Kopyalama
+yöntemi yerelde kalır, sürüm güncellemesi sizde olur.
 
 ### Gereksinimler
 
@@ -46,7 +48,7 @@ gerekirse elle düzenlenir. Submodül güncellemeleri bu dosyaları sessizce ger
 | --- | --- |
 | opencode | 2.x (V2 plugin API'si) |
 | Node.js | 22+ |
-| Model | `opencode.jsonc` içinde tanımlı; varsayılan `opencode/longcat-2.5-preview-free` (ücretsiz) |
+| Model | `opencode.jsonc` içinde tanımlı; varsayılan `opencode/space-bunny-free` (ücretsiz) |
 
 Ücretli model kullanmak isterseniz `opencode.jsonc` içindeki `model` satırını ve rol
 dosyalarındaki `model:` alanlarını değiştirin. Aynı anda role özel model atamak için
@@ -214,7 +216,19 @@ Modelin disiplinine bırakılsaydı yakalama güvenilmez olurdu.
 | `orchestra_recall` | Hafızada ara. Otomatik enjeksiyon zaten ilgili dersleri verir. |
 | `orchestra_lesson` | Uygulanabilir kural yaz; `promote` ile ham hatayı derse çevir. |
 | `orchestra_forget` | Yanlış/eskimiş dersi emekliye ayır. |
-| `orchestra_report` | `/loop` döngüsünün durdurma sinyali. |
+| `orchestra_report` | `/loop` döngüsünün durdurma sinyali. **Yalnızca mimar çağırabilir.** |
+
+> **`orchestra_report` neden mimara özel?** Rapor TEK yuva olarak tutulur
+> (`state.json → report`) ve `/loop` onu okuyarak döngüyü durdurur. Araç global
+> olduğu için, bir alt ajan `status: "done"` bildirseydi otonom iş tamamlanmadan kapanırdı.
+> İki katmanlı koruma var:
+> 1. **İzin:** her `crew/*` rolünün frontmatter'ında `orchestra_report → deny`. Araç
+>    modelin listesinde hiç görünmez, denemeye de gerek kalmaz.
+> 2. **Programatik kapı:** aracın kendisi `context.agent` değerini denetler; rol mimar
+>    değilse yazmaz ve gerekçeyi döndürür.
+>
+> Canlı doğrulama: `crew/maker` alt ajanına rapor çağırması söylendi; katalogda aracı
+> görmedi, çağırmayı denedi ve `Unknown tool` aldı. `state.json` değişmedi.
 
 ## Sıfırlamak / düzenlemek
 
@@ -412,15 +426,54 @@ alıyorsa yalnızca onun ayarları değişir:
 
 ## Güvenlik ve izinler
 
-
-`opencode.jsonc` iki bloktan oluşur:
+`opencode.jsonc` üç bloktan oluşur:
 
 1. **Kesin yasaklar.** `rm -rf /`, `git push`, `git reset --hard`, `npm publish`,
    `curl | sh`, `.env`/`.pem`/`.key` yazımı — rol dosyaları da aynı yasakları tekrar eder,
    çünkü rol izinleri tabanın üzerine eklenir.
 2. **Otonomi.** Kalan her şey `allow`. Sistem "bitene kadar" onay istemeden çalışabilsin diye.
+3. **Mimari kısıt.** Alt ajan yalnızca mimar tarafından başlatılabilir.
 
 Temkinli bir kurulum istersen 2. bloktaki `shell: allow` satırını `ask` yap: her komut onay ister.
+
+### Neden bazen yine de onay ister?
+
+İki ayrı şey karışıyor:
+
+| Mekanizma | Kapsam | Nerede |
+| --- | --- | --- |
+| `permissions` config | kalıcı, tüm oturumlar | `opencode.jsonc` |
+| `--auto` bayrağı | tek oturum | `opencode --auto` |
+
+Kural şu: **hiçbir kural eşleşmezse opencode `ask` varsayar.** "Kural yazmadım" = "serbest"
+değil, "sor" demektir. opencode'un temel varsayılanında `external_directory * → ask` vardır —
+proje kökü dışındaki her `read`/`edit`/`write` buradan kilitlenir. Bu yüzden 2. blokta şu
+satırlar var:
+
+```jsonc
+{ "action": "external_directory", "resource": "*", "effect": "allow" },
+{ "action": "question",           "resource": "*", "effect": "allow" },
+{ "action": "execute",            "resource": "*", "effect": "allow" },
+{ "action": "shotcut_*",          "resource": "*", "effect": "allow" },
+{ "action": "blender_*",          "resource": "*", "effect": "allow" },
+{ "action": "blenderlab_*",       "resource": "*", "effect": "allow" },
+```
+
+Yeni bir MCP sunucusu eklersen onun `<sunucu>_*` girdisini de buraya yaz; yoksa o sunucunun
+araçları her çağrıda onay ister.
+
+### `--auto` bayrağı
+
+Tam otonom, ama oturuma özel çalıştırmak istersen:
+
+```sh
+opencode --auto                    # bu oturumda ask'a düşen hiçbir şey sormaz
+opencode run --auto "testleri koştur"
+```
+
+`--auto` yalnızca `ask` duranları onaylar; 1. bloktaki `deny` kurallarına **dokunmaz**.
+`git push` ve `rm -rf` yasakları bayrakla da reddedilir. Kalıcı bir karşılığı yoktur —
+her oturumda yazman gerekir.
 
 ---
 

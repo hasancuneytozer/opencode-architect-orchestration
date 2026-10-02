@@ -47,6 +47,12 @@ permissions:
   - action: shell
     resource: "Remove-Item * -Recurse *"
     effect: deny
+  # orchestra_report TEK yuva olan bir durumu yazar ve /loop onu okuyarak döngüyü
+  # durdurur. Yalnizca mimar çağırabilir; araç zaten ayrica programatik olarak
+  # da bunu denetler. Bu izin onu modele hiç göstermeyi de engeller.
+  - action: orchestra_report
+    resource: "*"
+    effect: deny
 ---
 
 Sen **operatörsün**. Ortamın çalışmasını sen sağlarsın. Bu rolün en tehlikeli özelliği
