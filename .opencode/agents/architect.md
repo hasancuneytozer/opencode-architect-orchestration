@@ -1,5 +1,5 @@
 ---
-description: ORKESTRATÖR. Karmaşık işleri böler, crew rollerine paralel devreder, sonucu doğrular, hatadan kalıcı ders çıkarır. Her türlü iş için giriş noktasıdır.
+description: "ORKESTRATÖR. Karmaşık işleri böler, crew rollerine paralel devreder, sonucu doğrular, hatadan kalıcı ders çıkarır. Her türlü iş için giriş noktasıdır."
 mode: primary
 model: opencode/space-bunny-free
 color: "#8b5cf6"
@@ -25,17 +25,64 @@ permissions:
   # `question * allow`'umuzdan SONRA duruyor; üstlerine joker yazılırsa ezilirler.
   # Desende `*` sıfır karakteri de kapsar: `git push --force*` yalnız
   # `git push --force` değil, `--force-with-lease` ve `origin main` varyantını da yakalar.
+  #
+  # MİMARİN YAYIN YETKİSİ (bu dosyanın eklenen kısmı):
+  #   Normal `git push` artık config'in genel joker'ından MİRAS alınmaz; rolün
+  #   KENDİ açık iznidir. `crew/operator` push'u HAZIRLAR (ortam, remote, kimlik
+  #   doğrulama, dal hazırlığı); son YAYINI yalnız mimar yapar. Bu yüzden izin
+  #   config'e değil, rol dosyasına ve YALNIZ MİMARIN dosyasına yazılır —
+  #   daraltma mimara aittir, `crew/operator`'a devredilmez.
+  #   `resource: "git push *"` joker DEĞİLDİR (resource `*` değil): yalnız push
+  #   komutunu açar, config'deki diğer shell kurallarına hiç dokunmaz. Mevcut
+  #   joker denetimleri (8. bölüm) bu yüzden tetiklenmez.
+  - action: shell
+    resource: "git push *"
+    effect: allow
   - action: shell
     resource: rm -rf /
     effect: deny
   - action: shell
     resource: rm -rf /*
     effect: deny
+  # ZORLAYICI VARYANTLAR: `--force`/`-f` komutun BAŞINDA olabileceği gibi
+  # UZAĞINDA da olabilir; `git push origin main --force` yazmak meşrudur ve
+  # prefix deseni onu KAÇIRIRDI. Aşağıda eski iki ön ek kuralı AYNEN korunur
+  # (önce gelir), hemen ardına konum-bağımsız karşılıkları eklenir:
+  #   git push --force*      → BAŞTA zorlama  (eski, korundu)
+  #   git push -f*           → BAŞTA zorlama  (eski, korundu)
+  #   git push * --force*    → UZAKTA zorlama (yeni; --force-with-lease dâhil)
+  #   git push * -f*         → UZAKTA zorlama (yeni)
+  # Tümü `deny`; `allow`'un ALTINDA kaldıkları için son eşleşen kural onlar
+  # olur ve normal push bu sıralamada açık kalır.
   - action: shell
     resource: git push --force*
     effect: deny
   - action: shell
     resource: git push -f*
+    effect: deny
+  - action: shell
+    resource: git push * --force*
+    effect: deny
+  - action: shell
+    resource: git push * -f*
+    effect: deny
+  # `--mirror` tüm refleri (yerel refleri uzakla eşler) ÜZERİNE YAZAR; `+`
+  # refspec'i ise zorlamayı refspec'in İÇİNDEN yapar (ör.
+  # `git push origin +main:refs/heads/main`). İkisi de aynı sonucu verir:
+  # ıraksamış geçmişi geri yazar. Bu joker'ler de tam komut değil komut ÖNEKİ'dir.
+  # Refspec argümanının BAŞINDAKİ `+` zorlamadır ve yasaktır; adın İÇİNDEKİ
+  # `+` (ör. `v1+hot`) geçerlidir ve bu önek desenlerine eşleşmez.
+  - action: shell
+    resource: git push --mirror*
+    effect: deny
+  - action: shell
+    resource: git push * --mirror*
+    effect: deny
+  - action: shell
+    resource: git push +*
+    effect: deny
+  - action: shell
+    resource: git push * +*
     effect: deny
   - action: shell
     resource: git reset --hard *

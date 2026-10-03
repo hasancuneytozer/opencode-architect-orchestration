@@ -69,7 +69,7 @@ kuralın görünmemesi.
 
 ```sh
 npm run typecheck                        # plugin tip güvenliği
-npm test                                 # tüm regresyon testleri (1192 kontrol, 8 dosya)
+npm test                                 # tüm regresyon testleri (1200 kontrol, 8 dosya)
 opencode debug agents                    # roller + çözülmüş izinler
 opencode plugin list                     # plugin keşfedildi mi
 ```

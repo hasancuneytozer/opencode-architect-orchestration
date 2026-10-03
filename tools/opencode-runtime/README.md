@@ -237,14 +237,14 @@ Bu bölüm **ölçümlü olanı** ayırır. Ölçüm tarihi: **2026-10-03**. Aş
 kullanıcının seçtiği **güncel kaynak ağacından** alınan **yayın adayına** aittir.
 
 **Kök kontrol (taze yayın adayı, 2026-10-03) — yeşil.** `npm run typecheck` çıkış **0**;
-`npm test` çıkış **0**: 8 dosyada **1192 kontrol geçti, 0 başarısız**
-(208 + 125 + 178 + 96 + 108 + 123 + 93 + 261).
+`npm test` çıkış **0**: 8 dosyada **1200 kontrol geçti, 0 başarısız**
+(216 + 125 + 178 + 96 + 108 + 123 + 93 + 261).
 
 **Paket testleri — ayrı komut.** `npm run test:local-runtime` → **48 kontrol geçti, 0 başarısız**; 48/48 hem
 denetleyici Node **22.16.0** hem de sunucunun kendi Node **24.21.0**'iyle doğrulandı. Bunlar
 **saf fonksiyon** testleridir (`server.test.mjs` sahte sunucu **başlatmaz**; HTTP sözleşmesi
 buradan çıkarılamaz) ve 6 entegrasyon senaryosunu **kapsamaz**. Bu komut `npm test'in **içinde
-değildir**; yukarıdaki 1192 kontrolün parçası **değildir** ve iki küme karıştırılmaz.
+değildir**; yukarıdaki 1200 kontrolün parçası **değildir** ve iki küme karıştırılmaz.
 
 **Uçtan uca kabul — tarihsel P20 anlık görüntüsü; bu adayın ölçümü DEĞİLDİR.**
 `run-2026-10-03T06-58-44-799Z`, verdict **PASS** (harness `sha256 efa992d4…`, 06:58:44 → 06:59:10 UTC;
@@ -282,7 +282,7 @@ yeniden `8059…` yamalı. Kanıt: `rollback-report.json`.
 - `npm test` → çıkış **1**: `memory-durability` **105 geçti / 1 başarısız = 106 kontrol**;
   `&&` zinciri yüzünden `loop` / `injection` / `tasks` dosyaları **koşmadı**.
 
-**Bu yayın adayında bu iki hata yeniden üretilmedi** (typecheck çıkış 0, `npm test` çıkış 0, 1192/0).
+**Bu yayın adayında bu iki hata yeniden üretilmedi** (typecheck çıkış 0, `npm test` çıkış 0, 1200/0).
 Bu, "hatayı biz düzelttik" iddiası **değildir**: aday, birincil ağacın o an donmuş kopyasından alındı;
 bu belge yazımı hiçbir kaynak kodu, testi veya eşiği değiştirmedi. "Yalnızca ölçülen yeşildir";
 aşağıdaki sınırlar kaldığı gibi geçerlidir.

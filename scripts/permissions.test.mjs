@@ -651,5 +651,88 @@ check("architect: kapilar frontmatter'in sonunda", mimar.slice(-2).map((k) => k.
 ])
 
 console.log("")
+console.log("=== 11. MIMARIN YAYIN YETKISI: NORMAL PUSH ACIK, ZORLAMA KAPALI ===")
+// KAPSAM VE SINIR: burada HICBIR komut CALISTIRILMAZ. `git push --force`
+// GIBI BIR GERCEK KOMUT BU DOSYADA HICBIR ZAMAN CALISTIRILMAZ, hatta kuru
+// calistirilip ciktisi kullanilmaz. Hepsi `opencode.jsonc` + rol dosyalarinin
+// METNI uzerinden, ustteki saf eslestiriciyle degerlendirilir.
+//
+// KURAL: `crew/operator` push'u HAZIRLAR; son YAYINI yalniz mimar yapar.
+// Izin bu yuzden config'e degil rol dosyasina, ve yalniz MIMARIN dosyasina
+// yazilir. Daraltma burada yapilir; baska rollerin izni degismez.
+//
+// SIRALAMA (last-match-wins): normal push `allow`u ONCE, zorlayici varyant
+// `deny`leri SONRA durmalidir; aksi halde `allow` son eşleşen olup zorlamayi
+// acar. Bolum 11 bu sirayi metin uzerinden kanitlar.
+const mimarIzin = rolKurallari.get("architect.md") ?? []
+const mimarBirlestirilmis = [...configKurallar, ...mimarIzin]
+
+// (a) Izin gercekten rol dosyasinda ACIK YAZILI (config joker'indan miras degil).
+check(
+  "architect: kendi 'git push *' allow kurali frontmatter'da acik yazili",
+  mimarIzin.some((k) => k.action === "shell" && k.resource === "git push *" && k.effect === "allow"),
+  true,
+)
+
+// (b) Normal push: config + mimar birlestiginde ACIK.
+const NORMAL_PUSH = [
+  "git push",
+  "git push origin main",
+  "git push origin HEAD:refs/heads/main",
+  "git push --dry-run origin main",
+  "git push --set-upstream origin feature/safe",
+]
+check("normal push ornegi sayisi 5", NORMAL_PUSH.length, 5)
+check(
+  "mimar: " + NORMAL_PUSH.length + " normal push komutunun hepsi allow",
+  NORMAL_PUSH.map((komut) => etki(mimarBirlestirilmis, "shell", komut)),
+  ["allow", "allow", "allow", "allow", "allow"],
+)
+
+// (c) Zorlayici varyantlar: `allow`a ragmen KAPALI.
+//     --force/-f hem BAS hem SON konumda; --mirror ve `+` refspec'i ayrica.
+const ZORLAMA_PUSH = [
+  "git push --force",
+  "git push --force origin main",
+  "git push origin main --force",
+  "git push origin main --force-with-lease",
+  "git push origin main -f",
+  "git push --mirror origin",
+  "git push origin main --mirror",
+  "git push +main:refs/heads/main",
+  "git push origin +main:refs/heads/main",
+]
+check("zorlayici push ornegi sayisi 9", ZORLAMA_PUSH.length, 9)
+check(
+  "mimar: " + ZORLAMA_PUSH.length + " zorlayici varyantin hepsi deny (acik kalan " +
+    ZORLAMA_PUSH.filter((komut) => etki(mimarBirlestirilmis, "shell", komut) !== "deny").length + ")",
+  ZORLAMA_PUSH.filter((komut) => etki(mimarBirlestirilmis, "shell", komut) !== "deny"),
+  [],
+)
+
+// (d) Yetki DEVRETMEDEN: operator normal push'u HALE deny kalmali.
+const operatorIzin = rolKurallari.get("crew/operator.md") ?? []
+check(
+  "crew/operator: normal push YINE deny (yayin yetkisi devredilmedi)",
+  etki([...configKurallar, ...operatorIzin], "shell", "git push origin main"),
+  "deny",
+)
+
+// (e) Orkestrasyon kapilari yeni kuralin ALTINDA kalmali (son iki kural).
+check(
+  "architect: yayin izni orkestrasyon kapilarini son iki yerden etmedi",
+  mimarIzin.slice(-2).map((k) => k.action + ":" + k.effect),
+  ["orchestra_report:allow", "orchestra_task:allow"],
+)
+
+// (f) AGENTS.md: frontmatter `description` TIRNAK ICINDE olmali. Tirnak
+//     disinda kalan bir aciklamada ": " gecerse YAML sessizce bozulur ve rol
+//     `primary` olarak yuklenmez. Duz metin denetimi; YAML kutuphanesi yok.
+const mimarAciklamaSatiri = readFileSync(join(KOK, ".opencode", "agents", "architect.md"), "utf8")
+  .split(/\r?\n/)
+  .find((l) => l.startsWith("description:"))
+check("architect: frontmatter description'i tirnak icinde", /^description:\s+".+"$/.test(mimarAciklamaSatiri ?? ""), true)
+
+console.log("")
 console.log("SONUC: " + pass + " gecti, " + fail + " kaldi")
 process.exit(fail === 0 ? 0 : 1)

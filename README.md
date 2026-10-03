@@ -91,8 +91,8 @@ chunk'ını geri yükler — git ağacına, `reset`/`stash` ile dokunmaz, hafız
 > yerel yamadanır. Bu yüzden "upstream hata düzeltti" denmez, yalnızca "bu çalışma kopyasında
 > ölçüldü" denir. Kanıt dosyaları `.gitignore`'lı ve yereldir; **yeni bir klon sonuçları
 > görmez**. Bu dağıtımın **taze yayın adayında** (2026-10-03) kök kontrol yeşildir:
-> `npm run typecheck` çıkış **0**, `npm test` çıkış **0** — 8 dosyada **1192 kontrol geçti,
-> 0 başarısız** (208 + 125 + 178 + 96 + 108 + 123 + 93 + 261). Bu paketin kendi testi **ayrıdır**:
+> `npm run typecheck` çıkış **0**, `npm test` çıkış **0** — 8 dosyada **1200 kontrol geçti,
+> 0 başarısız** (216 + 125 + 178 + 96 + 108 + 123 + 93 + 261). Bu paketin kendi testi **ayrıdır**:
 > `npm run test:local-runtime` `npm test`'in parçası **değildir**; kendi 48 kontrolünü Node
 > **22.16.0** ve **24.21.0** altında 48/48 geçer. Yukarıdaki 6 senaryo ise **önceki P20
 > anlık görüntüsüdür**, bu adayda yeniden koşulmadı. P17/P23'teki kırmızı ölçümler **bu adayda
@@ -165,10 +165,10 @@ AGENTS.md                          deponun çalışma kuralları (otomatik yükl
     └── state.json                 döngü durumu + plugin tanılaması (geçici)
     + *.lock                       süreçler arası yazma kilidi (geçici)
 
-scripts/*.test.mjs + .opencode/scripts/*.test.mjs   regresyon testleri (npm test; 8 dosya, 1192 kontrol)
+scripts/*.test.mjs + .opencode/scripts/*.test.mjs   regresyon testleri (npm test; 8 dosya, 1200 kontrol)
 ```
 
-`npm test` yalnızca bu ağacın kök regresyonlarını koşar: **8 dosya, 1192 kontrol**. Runtime
+`npm test` yalnızca bu ağacın kök regresyonlarını koşar: **8 dosya, 1200 kontrol**. Runtime
 paketinin testi ayrı bir komuttur ve `npm test`'e **dahil değildir**: `npm run test:local-runtime`
 (**48 kontrol**).
 
