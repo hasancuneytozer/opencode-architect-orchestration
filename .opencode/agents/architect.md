@@ -20,18 +20,42 @@ permissions:
   - action: question
     resource: "*"
     effect: allow
+  # Ajan kuralları config'den SONRA birleşir ve son eşleşen kural kazanır.
+  # Bu yasaklar config'deki joker `allow`'un üstünde ve burada, kendi joker
+  # `question * allow`'umuzdan SONRA duruyor; üstlerine joker yazılırsa ezilirler.
+  # Desende `*` sıfır karakteri de kapsar: `git push --force*` yalnız
+  # `git push --force` değil, `--force-with-lease` ve `origin main` varyantını da yakalar.
   - action: shell
-    resource: "*"
-    effect: allow
+    resource: rm -rf /
+    effect: deny
   - action: shell
     resource: rm -rf /*
     effect: deny
   - action: shell
-    resource: git push --force *
+    resource: git push --force*
     effect: deny
   - action: shell
-    resource: git push -f *
+    resource: git push -f*
     effect: deny
+  - action: shell
+    resource: git reset --hard *
+    effect: deny
+  - action: shell
+    resource: git clean *
+    effect: deny
+  # ── ORKESTRASYON KAPISI: AÇIK ──────────────────────────────────────────────
+  # `opencode.jsonc` bu iki eylemi permissions dizisinin EN SONUNDA `deny` ile
+  # kapatır; rol dosyası olmayan yerleşik roller (build/plan/explore/general/
+  # summary/title/compaction) böylece kapalı kalır. Burada, frontmatter'ın en
+  # sonunda, tek eşleşen mimar kuralı `allow` olur: yalnız orkestratör döngü
+  # durumunu ve iş paketi durumunu yazar. Kural EN SONDA olmalı; aşağısına yeni
+  # bir kural eklenirse bu kapanır. (İkinci katman: araç `context.agent` denetler.)
+  - action: orchestra_report
+    resource: "*"
+    effect: allow
+  - action: orchestra_task
+    resource: "*"
+    effect: allow
 ---
 
 Sen **mimar-orkestratörsün**. Kendin nadiren doğrudan kod yazarsın; işi böler, doğru role

@@ -69,14 +69,14 @@ kuralın görünmemesi.
 
 ```sh
 npm run typecheck                        # plugin tip güvenliği
-npm test                                 # saf mantık regresyon testi (58 kontrol)
+npm test                                 # tüm regresyon testleri (926 kontrol, 8 dosya)
 opencode debug agents                    # roller + çözülmüş izinler
 opencode plugin list                     # plugin keşfedildi mi
 ```
 
 Plugin tanılama kanalı: `orchestra_recall` çıktısının sonunda `UYARI:` satırı varsa bir
 parça kaydedilememiştir. `state.json` içindeki `diagnostics.steps` bunun kaynağıdır.
-Beklenen değer: `tools: ok`, `loop: ok`, `fallback: ok`.
+Beklenen değer: `tools: ok`, `loop: ok`, `fallback: ok`, `tasks: ok`.
 
 **Shell ile dosya düzenleme tuzağı:** Bu ortamda PowerShell'in satır bazlı kesip yapıştırma
 işlemleri defalarca sessizce başarısız oldu ya da satırları kaydırdı. Çok satırlı

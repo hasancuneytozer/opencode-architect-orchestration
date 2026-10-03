@@ -6,8 +6,15 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --no-warnings scripts/orchestra.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/memory.test.mjs",
-    "check": "tsc --noEmit && npm test && opencode debug agents && opencode plugin list"
+    "test": "node --experimental-strip-types --no-warnings scripts/permissions.test.mjs && node --experimental-strip-types --no-warnings scripts/orchestra.test.mjs && node --experimental-strip-types --no-warnings .opencode/scripts/capture.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/memory.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/memory-durability.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/loop.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/injection.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/tasks.test.mjs",
+    "check": "tsc --noEmit && npm test && opencode debug agents && opencode plugin list",
+    "opencode:local:setup": "node tools/opencode-runtime/local.mjs setup",
+    "opencode:local:start": "node tools/opencode-runtime/local.mjs start",
+    "opencode:local:status": "node tools/opencode-runtime/local.mjs status",
+    "opencode:local:stop": "node tools/opencode-runtime/local.mjs stop",
+    "opencode:local:restore": "node tools/opencode-runtime/local.mjs restore",
+    "opencode:local:attach": "node tools/opencode-runtime/local.mjs attach",
+    "test:local-runtime": "node --test tools/opencode-runtime/patch.test.mjs tools/opencode-runtime/support.test.mjs tools/opencode-runtime/server.test.mjs"
   },
   "license": "MIT",
   "dependencies": {

@@ -23,19 +23,29 @@ permissions:
   - action: edit
     resource: "*.env"
     effect: deny
-  - action: shell
-    resource: "*"
-    effect: allow
+  # Joker `allow`'un altında kalmaları şart; üstüne yazılırsa ezilirler.
   - action: shell
     resource: "rm *"
     effect: deny
   - action: shell
-    resource: "git push *"
+    resource: "git push --force*"
+    effect: deny
+  - action: shell
+    resource: "git push -f*"
+    effect: deny
+  - action: shell
+    resource: "git reset --hard *"
+    effect: deny
+  - action: shell
+    resource: "git clean *"
     effect: deny
   # orchestra_report TEK yuva olan bir durumu yazar ve /loop onu okuyarak döngüyü
   # durdurur. Yalnizca mimar çağırabilir; araç zaten ayrica programatik olarak
   # da bunu denetler. Bu izin onu modele hiç göstermeyi de engeller.
   - action: orchestra_report
+    resource: "*"
+    effect: deny
+  - action: orchestra_task
     resource: "*"
     effect: deny
 ---

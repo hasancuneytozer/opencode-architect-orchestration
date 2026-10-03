@@ -14,32 +14,57 @@ permissions:
   - action: edit
     resource: "*"
     effect: allow
+  # `edit * allow` joker'ı config'deki sır yasaklarını ezip geçtiği için
+  # hepsi burada TEKRARLANMALI ve joker'ın ALTINDA kalmalı.
   - action: edit
     resource: "*.env"
     effect: deny
   - action: edit
     resource: "*.env.*"
     effect: deny
+  - action: edit
+    resource: "*.pem"
+    effect: deny
+  - action: edit
+    resource: "*.key"
+    effect: deny
+  - action: edit
+    resource: "*.npmrc"
+    effect: deny
+  - action: edit
+    resource: "*.git/config"
+    effect: deny
+  - action: edit
+    resource: "*id_rsa*"
+    effect: deny
   - action: shell
-    resource: "*"
-    effect: allow
+    resource: "rm -rf /"
+    effect: deny
   - action: shell
     resource: "rm -rf /*"
     effect: deny
   - action: shell
     resource: "rm -rf ~*"
     effect: deny
+  # Bu rol düz push'u da onaya bağlar (görev tanımı); asıl varyantlar ayrıca
+  # aşağıda. Joker `allow`'un altında kaldıkları sürece hepsi geçerlidir.
   - action: shell
     resource: "git push *"
     effect: deny
   - action: shell
-    resource: "git push --force *"
+    resource: "git push --force*"
+    effect: deny
+  - action: shell
+    resource: "git push -f*"
     effect: deny
   - action: shell
     resource: "git reset --hard *"
     effect: deny
   - action: shell
-    resource: "npm publish *"
+    resource: "git clean *"
+    effect: deny
+  - action: shell
+    resource: "npm publish*"
     effect: deny
   - action: shell
     resource: "curl * | sh"
@@ -51,6 +76,9 @@ permissions:
   # durdurur. Yalnizca mimar çağırabilir; araç zaten ayrica programatik olarak
   # da bunu denetler. Bu izin onu modele hiç göstermeyi de engeller.
   - action: orchestra_report
+    resource: "*"
+    effect: deny
+  - action: orchestra_task
     resource: "*"
     effect: deny
 ---

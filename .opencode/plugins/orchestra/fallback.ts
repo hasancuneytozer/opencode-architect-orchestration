@@ -248,6 +248,125 @@ export function sweepBreakers(breakers: Map<string, Breaker>, now: number, coold
   return cleared
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Geri dönüş kararı (saf ve test edilebilir)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Bir basarisiz geri donus denemesinden sonra en fazla bu kadar kez DAHA denenir.
+ *
+ * Geri donus `ctx.session.switchModel` ile yapilir ve bu cagri hata VEREBILIR.
+ * Kayitlar `once` silinseydi (eski davranis) oturum kalici olarak yedek modelde
+ * kalirdi: geri donus bir daha denenmezdi. Kayitlar simdi SILINMEDEN sonraki tura
+ * tasinir; sinir bu tekrarin sonsuz olmasini engeller.
+ */
+export const MAX_RESTORE_RETRIES = 1
+
+/** `"provider/model"` referansini ayirir. Gecersizse tanimsiz doner. */
+export function parseModelRef(ref: string | undefined): { providerID: string; id: string } | undefined {
+  const raw = String(ref ?? "").trim()
+  if (!raw) return undefined
+  const [providerID, ...rest] = raw.split("/")
+  const id = rest.join("/")
+  if (!providerID || !id) return undefined
+  return { providerID, id }
+}
+
+/**
+ * Rol bazli gecersiz kilma. Ajan bilinmiyorsa taban config doner.
+ *
+ * NOT: `perAgent` gecersiz kilmalari YALNIZCA buradan okunmalidir. Karari
+ * `baseConfig` ile vermek, ayari sessizce yok saymak demektir.
+ */
+export function configForAgent(base: FallbackConfig, agent?: string): FallbackConfig {
+  if (!agent) return base
+  const override = base.perAgent[agent]
+  return override ? { ...base, ...override } : base
+}
+
+export type RestoreReason =
+  | "config-off" // autoSwitch/restoreOnRecovery/enabled kapali
+  | "no-mark" // bu oturumda gecis yapilmamis
+  | "still-retrying" // gecisten sonra da retry oldu
+  | "no-original" // ilk model kaydi yok
+  | "invalid-original" // ilk model referansi bozuk
+  | "restore-limit" // basarisiz deneme siniri asildi
+  | "restore"
+
+/** Bu gerekçelerde bekleyen gecis kaydi BIRAKILIR; donus bir daha denenmez. */
+export const RESTORE_GIVE_UP: readonly RestoreReason[] = [
+  "config-off",
+  "no-original",
+  "invalid-original",
+  "restore-limit",
+]
+
+/**
+ * "Model duzeldi, ilk modele donelim mi?" kararini verir.
+ *
+ * Saf fonksiyon: `switchModel` cagrisi iceride degildir, bu yuzden karar
+ * laboratuvarda test edilebilir. Gerekce `reason` ile doner.
+ *
+ * `nextFailedRestores` = "bu turda gecis denendi ve BASARISIZ olduysa saklanacak
+ * deger". Kural:
+ *   - `restore` -> failed + 1 (deneme yapildi, sayac ilerlemeli)
+ *   - digerleri -> failed (deneme YAPILMADI, sayac yerinde durur)
+ * Basarili geciste cagiran taraf kaydi tamamen siler, sayaca gerek kalmaz.
+ */
+export function shouldRestore(input: {
+  config: FallbackConfig
+  mark: number | undefined
+  retryTotal: number | undefined
+  original: string | undefined
+  failedRestores: number
+}): { restore: boolean; nextFailedRestores: number; reason: RestoreReason } {
+  const { config, mark, retryTotal, original } = input
+  const failed =
+    Number.isFinite(input.failedRestores) && input.failedRestores > 0 ? Math.floor(input.failedRestores) : 0
+  const no = (reason: RestoreReason) => ({ restore: false, nextFailedRestores: failed, reason })
+
+  if (!config.enabled || !config.autoSwitch || !config.restoreOnRecovery) return no("config-off")
+  if (mark === undefined) return no("no-mark")
+  // Sayac OTURUM bazlidir ve gecis aninda isaretlenir. Degistiyse gecisten
+  // sonra da retry oldu demektir; yedek model de tutmuyor, bekle.
+  if (retryTotal !== mark) return no("still-retrying")
+  if (!original) return no("no-original")
+  if (!parseModelRef(original)) return no("invalid-original")
+  // Sinir asildi: bir daha deneme. Kayit birakilacak, dongu kapatilir.
+  if (failed > MAX_RESTORE_RETRIES) return no("restore-limit")
+  return { restore: true, nextFailedRestores: failed + 1, reason: "restore" }
+}
+
+/** Oturum bazli retry sayacini bir artirir, yeni degeri dondurur. */
+export function bumpRetry(counts: Map<string, number>, sessionID: string): number {
+  const next = (counts.get(sessionID) ?? 0) + 1
+  counts.set(sessionID, next)
+  return next
+}
+
+/**
+ * Sayac haritasini sinirla; harita sinirsiz buyumesin.
+ *
+ * `pending` icindeki oturumlar SILINMEZ. Sebep: isareti silinen oturumda
+ * `retryTotal` tanimsiz olur, `mark` ile esitlenmez ve geri donus kalici olarak
+ * engellenmis olur. Yalnizca yalnizlik (isaretsiz) oturumlar atilir.
+ */
+export function trimRetryCounts(counts: Map<string, number>, pending: Iterable<string>, maxSessions: number): string[] {
+  const cap = Number.isFinite(maxSessions) && maxSessions > 0 ? Math.floor(maxSessions) : 0
+  if (cap <= 0 || counts.size <= cap) return []
+  const keep = new Set(pending)
+  const dropped: string[] = []
+  for (const key of [...counts.keys()]) {
+    // `counts.size` canli degerdir; silinenleri bir daha saymamak icin
+    // `dropped.length` ile TOPLAMAK yanlis olurdu.
+    if (counts.size <= cap) break
+    if (keep.has(key)) continue
+    counts.delete(key)
+    dropped.push(key)
+  }
+  return dropped
+}
+
 export interface FallbackHandle {
   /**
    * `prompt` hook'una bağlanır: model düzelince ilk modele dönüşü tetikler.
@@ -291,17 +410,35 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
   // yani gecilen tur basarili bitmis ve ilk modele donebiliriz. Bayat bayat
   // isaret yontemi BIR TUR kaybediyordu; bu yontem kaybetmez.
   const switchMark = new Map<string, number>()
-  let retryTotal = 0
+  /**
+   * Retry sayaci OTURUM bazlidir.
+   *
+   * Tek global sayac paralel oturumlari birbirine karistiriyordu: baska bir
+   * oturumun tek bir retry'i bu oturumun `mark`ini degistiriyor ve geri donus
+   * hic gerceklesmiyordu. Artik her oturum kendi sayacini tasir.
+   */
+  const retryTotals = new Map<string, number>()
+  /** Oturum basina basarisiz geri donus denemesi. Sinirli: MAX_RESTORE_RETRIES. */
+  const failedRestores = new Map<string, number>()
   let learned = 0
 
-  const configFor = (agent?: string): FallbackConfig => {
-    if (!agent) return baseConfig
-    const override = baseConfig.perAgent[agent]
-    return override ? { ...baseConfig, ...override } : baseConfig
+  /** Sayac haritasinin ust siniri. Cok eski oturumlar atilir. */
+  const MAX_TRACKED_SESSIONS = 200
+
+  /** Bir oturumun gecis kaydini tamamen birakir. */
+  const forgetSwitch = (sessionID: string) => {
+    switchMark.delete(sessionID)
+    switches.delete(sessionID)
+    originals.delete(sessionID)
   }
 
+  const configFor = (agent?: string): FallbackConfig => configForAgent(baseConfig, agent)
+
   const note = (agent: string | undefined, failure: Failure, key: string) => {
-    if (!baseConfig.learnFromFailures) return
+    // Ajan kimligi karara girdi: `perAgent.learnFromFailures: false` yazan bir rol
+    // icin bu not YAZILMAMALI. Once taban config okunuyordu, ayar sessizce yok
+    // sayiliyordu.
+    if (!configFor(agent).learnFromFailures) return
     // Mevcut capture/persist yolunu yeniden kullanırız: aynı eşik, aynı sinyal
     // mantığı, aynı dosya. Yeni bir kayıt türü icat etmeye gerek yok.
     memory.capture({
@@ -321,14 +458,15 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
     if (switches.get(sessionID)?.from === from) return false // bu modelden zaten geçilmiş
     const target = nextHealthy(config.chain, from, breakers, now, config.cooldownMs)
     if (!target) return false
-    const [providerID, ...rest] = target.split("/")
-    const id = rest.join("/")
-    if (!providerID || !id) return false
+    const model = parseModelRef(target)
+    if (!model) return false
     originals.set(sessionID, originals.get(sessionID) ?? from)
     switches.set(sessionID, { from, to: target, at: now })
-    // Geri donus icin isaret: bu andaki retry sayaci.
-    switchMark.set(sessionID, retryTotal)
-    await ctx.session.switchModel({ sessionID, model: { providerID, id } })
+    // Geri donus icin isaret: bu oturumun O ANKI retry sayaci (global degil).
+    switchMark.set(sessionID, retryTotals.get(sessionID) ?? 0)
+    // Yeni gecis basliyor: bu oturumun geri donus deneme bütcesi sifirlanir.
+    failedRestores.delete(sessionID)
+    await ctx.session.switchModel({ sessionID, model })
     return true
   }
 
@@ -337,7 +475,9 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
       // Yapilandirmayi canli tazele; karar ESKI config ile hesaplanmasin.
       await refreshConfig()
       const config = configFor(event.agent)
-      retryTotal += 1
+      bumpRetry(retryTotals, event.sessionID)
+      // Sayaci sinirla; bekleyen gecis isareti olan oturumlar korunur.
+      trimRetryCounts(retryTotals, switchMark.keys(), MAX_TRACKED_SESSIONS)
       if (!config.enabled) return
 
       const failure = classifyError(event.error)
@@ -406,31 +546,60 @@ export async function registerFallback(ctx: PluginContext, memory: Memory, root:
   const handle: FallbackHandle = {
     async onTurnStart(sessionID: string) {
       try {
-        const config = configFor(undefined)
-        if (!config.enabled || !config.autoSwitch || !config.restoreOnRecovery) return
+        // Bekleyen gecis kaydi yoksa yapacak is yok; erken cikis ayrica pahalı
+        // oturum okumasini da atlar.
+        if (!switchMark.has(sessionID)) return
+        await refreshConfig()
 
-        // `context` bir agent-loop isteğinden hemen ÖNCE çalışır; yani burada
-        // gördüğümüz retry'lar bir ÖNCEKİ tura aittir.
-        //
-        // Geçiş yaptığımızda retry sayacının o anki değerini not ettik. Buraya
-        // geldiğimizde sayaç aynıysa, geçişten sonra HİÇ retry olmamış demektir;
-        // yani geçilen tur başarıyla bitti ve ilk modele dönebiliriz.
-        // Sayaç değiştiyse yedek model de tutmuş, hâlâ bekliyoruz.
-        const mark = switchMark.get(sessionID)
-        if (mark === undefined) return
-        if (retryTotal !== mark) return
+        // Oturumun ajanini oku. `configFor(undefined)` kullanmak, `perAgent`
+        // gecersiz kilmalarini BU YOLDA tamamen gecersiz kiliyordu.
+        let agent: string | undefined
+        try {
+          const session = (await ctx.session.get({ sessionID })) as { agent?: string } | undefined
+          if (typeof session?.agent === "string") agent = session.agent
+        } catch {
+          /* oturum okunamıyorsa ajansız devam et */
+        }
 
-        const original = originals.get(sessionID)
-        if (!original) return
-        const [providerID, ...rest] = original.split("/")
-        const id = rest.join("/")
-        if (!providerID || !id) return
-        switchMark.delete(sessionID)
-        switches.delete(sessionID)
-        originals.delete(sessionID)
-        await ctx.session.switchModel({ sessionID, model: { providerID, id } })
+        const decision = shouldRestore({
+          // `context` bir agent-loop isteğinden hemen ÖNCE çalışır; yani burada
+          // gördüğümüz retry'lar bir ÖNCEKİ tura aittir. Geçiş anında bu oturumun
+          // retry sayacını not ettik; sayac aynıysa geçişten sonra HİÇ retry
+          // olmamış demektir, yani geçilen tur tuttu ve ilk modele dönebiliriz.
+          config: configFor(agent),
+          mark: switchMark.get(sessionID),
+          retryTotal: retryTotals.get(sessionID),
+          original: originals.get(sessionID),
+          failedRestores: failedRestores.get(sessionID) ?? 0,
+        })
+
+        if (!decision.restore) {
+          // Vazgecme gerekcelerinde kayit birakilir: ayni gecis kartsiz kalmasin.
+          if (RESTORE_GIVE_UP.includes(decision.reason)) {
+            forgetSwitch(sessionID)
+            failedRestores.set(sessionID, decision.nextFailedRestores)
+          }
+          return
+        }
+
+        const model = parseModelRef(originals.get(sessionID))
+        if (!model) return // shouldRestore "invalid-original" derdi; savunma amaçlı
+
+        try {
+          await ctx.session.switchModel({ sessionID, model })
+        } catch {
+          // Kayit KORUNUR; bir sonraki tur tekrar dener. Sayac sinirli oldugu icin
+          // sonsuz dongu olmaz: MAX_RESTORE_RETRIES asilirsa "restore-limit".
+          failedRestores.set(sessionID, decision.nextFailedRestores)
+          return
+        }
+
+        // ONCE basarili ol, SONRA temizle. Tersi bir hata halinde kaydi kaybeder
+        // ve oturum kalici olarak yedek modelde kalirdi.
+        forgetSwitch(sessionID)
+        failedRestores.delete(sessionID)
       } catch {
-        /* geri dönüş başarısız olursa temizlemeyi ertele, isteği bozma */
+        /* geri dönüş başarısız olursa isteği bozma */
       }
     },
     stats() {

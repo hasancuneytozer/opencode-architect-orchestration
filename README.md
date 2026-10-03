@@ -19,7 +19,8 @@ opencode
 ```
 
 `npm install` yalnızca plugin'in ihtiyaç duyduğu `@opencode/plugin` paketini kurar; sistemin
-kendisi dosya tabanlıdır. Kurulumdan sonra mimar rolü otomatik açılır.
+kendisi dosya tabanlıdır. Kurulumdan sonra mimar rolü otomatik açılır. Bu **normal kurulum
+yoludur**; aşağıdaki isteğe bağlı proje-yerel runtime onun yerine geçmez, üstüne eklenir.
 
 Bu deponun **kendi üzerinde** çalışması gerekmez — istediğiniz herhangi bir projeye
 kopyalayıp orada kullanabilirsiniz:
@@ -53,6 +54,46 @@ yöntemi yerelde kalır, sürüm güncellemesi sizde olur.
 Ücretli model kullanmak isterseniz `opencode.jsonc` içindeki `model` satırını ve rol
 dosyalarındaki `model:` alanlarını değiştirin. Aynı anda role özel model atamak için
 `agents.<id>.model` kullanılabilir.
+
+### İsteğe bağlı: proje-yerel açık kod runtime
+
+**Normal kurulumu değiştirmez.** Yalnızca `AgentNotFound` hatasını ölçülebilir kılmak ve
+**v2.0.18 açık kaynak çekirdeğine uygulanan, burada doğrulanan yerel aktivasyon bariyeri
+yamasını** kendi çalışma kopyanızda denemek isterseniz kullanılır. Upstream'in bunu resmî
+olarak yayımladığı bir düzeltme **değildir**.
+
+```sh
+npm run opencode:local:setup     # Node 24 + sabitlenmiş çekirdek 2.0.18 + yamayı uygular
+npm run opencode:local:start     # ayrı süreç, 127.0.0.1, özel profil/hafıza
+# yeni terminalde:
+npm run opencode:local:attach    # opencode --server <url> <root>
+```
+
+Kuruluysa `setup`'a gerek yoktur: `npm run opencode:local:start`, ardından **yeni bir
+terminalde** `npm run opencode:local:attach` yeterlidir. `attach` **yeni bir sohbet** açar;
+o anki konuşmanız bağlı olduğu servisde kalır ve **taşınmaz**. Belgelenmiş bir `pid`/`url`
+varsayılmaz — `npm run opencode:local:status` çıktısı okunur. Giriş gerekiyorsa `attach`
+ile açılan TUI'de `/connect` kullanılır; kimlik kopyalanmaz.
+
+Global kuruluma, ortak servise veya sistem yapılandırmasına **hiçbir komut dokunmaz**: her şey
+`.orchestra-runtime/` altındadır ve `.gitignore`'lıdır (paketler, indirilen Node, özel veritabanı,
+profil ve hafıza). Plugin'in yalnızca **kodu** (6 `.ts`) kopyalanır; kişisel hafıza, config ve
+`auth.json` kopyalanmaz. `stop` yalnızca HTTP `shutdown` çağırır, `restore` yalnızca çekirdek
+chunk'ını geri yükler — git ağacına, `reset`/`stash` ile dokunmaz, hafızanı silmez.
+
+> **Kanıt (yerel ölçüm, 2026-10-03).** Gerçek dağıtılmış sunucuya karşı **6/6** devam
+> senaryosu **PASS**: `architect` ve `crew/maker` için park → mutasyon → park sırasında yeni
+> `setup` → araç çağrısı `completed` → `DONE`, **0 rol hatası**; negatif kontrolde taze native
+> `server.log` satırı `Session.AgentNotFoundError` verdi. **Sınırlar:** etkileşimli TUI ve
+> gerçek ebeveyn→çocuk alt ajan doğumu **ölçülmedi**; 6 senaryo yalnızca iki rolün API
+> üzerinden devam davranışıdır ve **dış/üretim model çağrısı 0**'dır. Upstream'in tam TypeScript
+> build'i çalıştırılmaz, resmî EXE yeniden derlenmez — dağıtım indirilmiş `dist`'e hash'lenmiş
+> yerel yamadanır. Bu yüzden "upstream hata düzeltti" denmez, yalnızca "bu çalışma kopyasında
+> ölçüldü" denir. Kanıt dosyaları `.gitignore`'lı ve yereldir; **yeni bir klon sonuçları
+> görmez**. `npm run typecheck` ve `npm test` bu dağıtımdan önce kırmızıdır ve düzeltilmemiştir.
+
+Ayrıntılı/teknik sürüm, güvenlik sözleşmesi, hash değerleri ve lisans atfı:
+[`tools/opencode-runtime/README.md`](tools/opencode-runtime/README.md).
 
 ---
 
@@ -105,18 +146,20 @@ AGENTS.md                          deponun çalışma kuralları (otomatik yükl
 │   ├── lesson/SKILL.md            hatadan ders çıkarma
 │   └── cast/SKILL.md              kadro yönetimi
 ├── commands/                      /orchestrate /auto /recall /standup /cast
-├── orchestra.json                 dayanıklılık ayarları (yoksa varsayılanlar)
-├── plugins/orchestra/             hafıza motoru + otonom döngü + dayanıklılık
+├── orchestra.json                 dayanıklılık + bütçe ayarları (yoksa varsayılanlar)
+├── plugins/orchestra/             hafıza motoru + görev defteri + otonom döngü + dayanıklılık
 │   ├── memory.ts                  ders deposu, puanlama, otomatik yakalama
-│   ├── tools.ts                   orchestra_recall/lesson/forget/report
+│   ├── tasks.ts                   görev defteri, yüzey çakışma denetimi, bütçe
+│   ├── tools.ts                   recall/lesson/forget/report/task/status
 │   ├── loop.ts                    /loop komutu
 │   ├── fallback.ts                retry hook'u, sınıflandırma, devre, geri çekilme
 │   └── index.ts                   bağlama + hafıza enjeksiyonu
 └── memory/                          sürümlenmez, her klon boş başlar
     ├── lessons.jsonl              kalıcı dersler (kişiye özel, depoda yok)
     └── state.json                 döngü durumu + plugin tanılaması (geçici)
+    + *.lock                       süreçler arası yazma kilidi (geçici)
 
-scripts/orchestra.test.mjs        saf mantık regresyon testi (npm test)
+scripts/*.test.mjs + .opencode/scripts/*.test.mjs   regresyon testleri (npm test; yeşil DEĞİL)
 ```
 
 Roller, beceriler ve komutlar **düz dosyadır**. Eklemek = dosya eklemek, çıkarmak = dosya
@@ -217,6 +260,8 @@ Modelin disiplinine bırakılsaydı yakalama güvenilmez olurdu.
 | `orchestra_lesson` | Uygulanabilir kural yaz; `promote` ile ham hatayı derse çevir. |
 | `orchestra_forget` | Yanlış/eskimiş dersi emekliye ayır. |
 | `orchestra_report` | `/loop` döngüsünün durdurma sinyali. **Yalnızca mimar çağırabilir.** |
+| `orchestra_task` | Görev defteri: iş paketi ekle, durumunu ilerlet, kanıt ekle. **Yalnızca mimar.** |
+| `orchestra_status` | Defter + bütçe tek ekranda: kim ne yapıyor, hangi yüzeyler çakışıyor. |
 
 > **`orchestra_report` neden mimara özel?** Rapor TEK yuva olarak tutulur
 > (`state.json → report`) ve `/loop` onu okuyarak döngüyü durdurur. Araç global
@@ -229,6 +274,58 @@ Modelin disiplinine bırakılsaydı yakalama güvenilmez olurdu.
 >
 > Canlı doğrulama: `crew/maker` alt ajanına rapor çağırması söylendi; katalogda aracı
 > görmedi, çağırmayı denedi ve `Unknown tool` aldı. `state.json` değişmedi.
+
+> **`orchestra_task` neden mimara özel?** Görev defterinin durumu mimarın kararıdır.
+> Alt ajan kendi işini `done` ilan edebilirse kabul kriterini kendisi belirler ve
+> mimarın bağımlılık sırası ile çakışma denetimi anlamsızlaşır. Aynı iki katmanlı
+> koruma geçerli: rol dosyasında `deny` + araçta `context.agent` denetimi.
+
+---
+
+## Görev defteri
+
+İş paketleri artık **yalnızca metin değil, kodla izlenebilir** bir kayıt. Defter
+`orchestra_task` ile doldurulur, `orchestra_status` ile okunur.
+
+| Alan | Anlamı |
+| --- | --- |
+| `id`, `title`, `role` | Kim, ne, hangi rol |
+| `dependsOn` | Bağımlılık. Tamamlanmadan `running` olamaz; döngüsel bağımlılık reddedilir |
+| `writeSurface` | Dokunacağı yollar. **İki görev kesişirse çakışma raporlanır** |
+| `acceptance` | Kabul kriteri. `done` için boş **olamaz** |
+| `evidence` | Kanıt. `done` için boş **olamaz** |
+| `status` | `planned → running → verifying → done / blocked / failed` |
+
+**Bu neyi zorluyor?** Daha önce yazma yüzeyi ve bağımlılık yalnızca modelin
+uyması beklenen metindi (`skills/dispatch/SKILL.md`); kod tek satırını görmüyordu.
+Artık:
+
+- **Çakışan yüzey görünür.** İki `running` görev aynı dosyaya dokunuyorsa sistem
+  bildirir. Engellemez — karar mimarın — ama **göremez artık**.
+- **Kanıtsız "bitti" reddedilir.** `evidence` boşsa `done` kabul edilmez. Bu,
+  "yaptım" ile "çalıştığını kanıtladım" ayrımını sözlüğe değil koda bağlar.
+- **Döngüsel bağımlılık yakalanır.** `A → B → A` tespit edilip reddedilir.
+- **Geçersiz geçiş reddedilir.** `planned`dan `done`a atlamak mümkün değildir.
+
+> Yüzey kesişimi **tespit** yapar, engellemez. Çakışan iki işi seri yapmak da
+> bazen doğru karardır; sistem kararı vermez, kararın görünür olmasını sağlar.
+
+## Bütçe
+
+`.opencode/orchestra.json` → `budget` bloğu canlı okunur:
+
+```jsonc
+"budget": {
+  "maxWallClockMs": 14400000,   // 4 saat
+  "maxIterations": 50,
+  "maxConcurrentTasks": 8,
+  "maxTasksPerGoal": 200
+}
+```
+
+Sınır aşılınca `orchestra_status` **aşım** gösterir ve `UYARI` notu düşer. Bütçe
+kendisi durdurmaz — durduran `/loop`'tur; defter ölçer, döngü keser. Bu ayrım
+bilinçlidir: ölçüm ve karar farklı katmanlarda kalır.
 
 ## Sıfırlamak / düzenlemek
 
@@ -529,3 +626,18 @@ Ayrıntılı günlük: `~/.local/share/opencode/log/opencode.log`
 - **Güçlü varsayılan, açık risk.** `autoSwitch` kapalı gelir: `switchModel` kalıcı bir
   oturum değişikliğidir ve geri dönüşü biz yönetiriz. Ölçemediğimiz bir davranışı varsayılan
   açmak, kullanıcıdan habersiz durum sızdırmaktır.
+- **Hata kökeni denetlenir, metin taranmaz.** Bir `read` çıktısındaki `TypeError` *çalıştırılmış*
+  bir hata değildir; imzaya yazılırsa sayaç şişer ve sistem kendi kaydını yanlış ders sanar.
+  Yalnız hata üretebilen araçların çıktısı taranır (`capture.scanTools`), kendi kayıtlarımız elenir.
+- **Yazma atomik, bozuk dosya karantinada.** `atomicWrite` (tmp + fsync + rename) yarıda
+  kesilen yazmada dosyayı bozmaz; okunamayan depo sessizce sıfırlanmaz, `.corrupt-<zaman>`
+  adıyla yedeklenip `orchestra_recall` çıktısında `UYARI:` olarak bildirilir.
+- **Ham gözlem, uygulanabilir kural değildir.** Otomatik yakalanan kayıtlar sistem bloğunda
+  "veri" olarak işaretlenir; sadece `curated`/`agent` dersleri talimat olarak enjekte edilir.
+  Sızgeç ayrıca blok sınırı üretilmesini engeller (`<`/`>` yok).
+- **Döngü oturuma aittir.** Rapor ve döngü durumu `sessionID` + `runID` ile anahtarlanır;
+  iki oturum birbirinin `done` raporuyla kapanmaz. Yalnız o iterasyona ait rapor kabul edilir.
+- **İzin sırası son eşleşmeye göre yazılır.** V2'de son eşleşen kural kazanır: genel izinler
+  **önce**, özel yasaklar **sonra**. Rol dosyasındaki joker `allow`, config'deki yasakları
+  ezip geçtiği için **yazılmaz**; yazan roller joker'ın altına sır yasaklarını tekrarlar.
+  `npm test` her rolde bunu doğrular.

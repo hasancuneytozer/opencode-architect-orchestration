@@ -12,10 +12,9 @@
   //   veri    → .opencode/memory/                   (lessons.jsonl, state.json)
   //
   // Roller ve beceriler dosya tabanlıdır: eklemek/çıkarmak = dosya eklemek/silmek.
-  // Plugin otomatik keşfedilir (.opencode/plugins/), burada tekrar listelemek
-  // iki kez yüklenmesine yol açabilir; bu yüzden `plugins` dizisine dokunulmaz.
-  //
-  // Bu klasörü olduğu gibi başka bir projeye kopyalarsan sistem tamamen taşınır.
+  // Plugin otomatik keşfedilir (.opencode/plugins/); `plugins` dizisine yazmak
+  // iki kez yüklenmesine yol açabilir, o yüzden dokunulmaz.
+  // Bu klasörü olduğu gibi başka projeye kopyalarsan sistem tamamen taşınır.
   // ─────────────────────────────────────────────────────────────────────────
 
   "default_agent": "architect",
@@ -32,38 +31,23 @@
   },
 
   "permissions": [
-    // ── 1) Kesin yasaklar. Rol dosyaları da kendi yasaklarını tekrarlar; bu
-    //       liste, gelecekte eklenebilecek her rol için taban güvenliktir.
-    { "action": "shell", "resource": "rm -rf /*", "effect": "deny" },
-    { "action": "shell", "resource": "rm -rf ~*", "effect": "deny" },
-    { "action": "shell", "resource": "rm -rf C:*", "effect": "deny" },
-    { "action": "shell", "resource": "rm -rf /c/*", "effect": "deny" },
-    { "action": "shell", "resource": "rm -rf --no-preserve-root*", "effect": "deny" },
-    { "action": "shell", "resource": "Remove-Item * -Recurse *", "effect": "deny" },
-    // Düz push serbest; YANLISLIKLA uzaktaki geçmişi ezmeyi engellemek için
-    // zorlamalı varyantlar yasak. --force-with-lease de kapsamdadır.
-    { "action": "shell", "resource": "git push --force*", "effect": "deny" },
-    { "action": "shell", "resource": "git push -f*", "effect": "deny" },
-    { "action": "shell", "resource": "git reset --hard *", "effect": "deny" },
-    { "action": "shell", "resource": "git clean *", "effect": "deny" },
-    { "action": "shell", "resource": "npm publish *", "effect": "deny" },
-    { "action": "shell", "resource": "pnpm publish *", "effect": "deny" },
-    { "action": "shell", "resource": "yarn publish *", "effect": "deny" },
-    { "action": "shell", "resource": "curl *|sh*", "effect": "deny" },
-    { "action": "shell", "resource": "wget *|sh*", "effect": "deny" },
+    // ─────────────────────────────────────────────────────────────────────────
+    // SIRALAMA KURALIDIR. Kurallar yukarıdan aşağı taranır ve **SON eşleşen**
+    // kural kazanır: bir yasak, kendisinden SONRA gelen bir joker `allow` ile
+    // sessizce ölür. Düzen bu yüzden şudur:
+    //
+    //   1) joker `allow`lar ÖNCE   → her rol bunları miras alır
+    //   2) taban yasaklar SONRA    → sonraki hiçbir kural onları ezmeye kalkamaz
+    //   3) orkestrasyon kapıları EN SONDA → kapatılır, mimar kendi
+    //      frontmatter'ında yeniden açar (bkz. 3)
+    //
+    // Tersi (yasak önce, joker allow sonra) taban yasakları öldürürdü.
+    // `scripts/permissions.test.mjs` bu sırayı ve kapıları her koşumda kanıtlar.
+    // ─────────────────────────────────────────────────────────────────────────
 
-    { "action": "edit", "resource": "*.env", "effect": "deny" },
-    { "action": "edit", "resource": "*.env.*", "effect": "deny" },
-    { "action": "edit", "resource": "**/id_rsa*", "effect": "deny" },
-    { "action": "edit", "resource": "**/*.pem", "effect": "deny" },
-    { "action": "edit", "resource": "**/*.key", "effect": "deny" },
-    { "action": "edit", "resource": "**/.npmrc", "effect": "deny" },
-    { "action": "edit", "resource": "**/.git/config", "effect": "deny" },
-
-    // ── 2) Otonom çalışma varsayılanı. Sistem "bitene kadar" kendi başına
-    //       çalışabilsin diye onay istemiyor; güvenlik 1. bloktaki yasaklarla
-    //       sağlanır. Daha temkinli bir kurulum istersen bu satırı "allow"
-    //       yerine "ask" yap: her shell komutu onay ister.
+    // ── 1) Genel izinler ─────────────────────────────────────────────────────
+    // Otonom çalışma varsayılanı: "bitene kadar" onay istemez. Güvenlik 2. blokta.
+    // Daha temkinli kurulum: `shell` satırını "ask" yap.
     { "action": "shell", "resource": "*", "effect": "allow" },
     { "action": "edit", "resource": "*", "effect": "allow" },
     { "action": "read", "resource": "*", "effect": "allow" },
@@ -73,11 +57,10 @@
     { "action": "websearch", "resource": "*", "effect": "allow" },
     { "action": "skill", "resource": "*", "effect": "allow" },
 
-    // Hiçbir kural eşleşmezse opencode etkiyi "ask" varsayar — izin yazmamak
-    // "serbest" değil, "onay iste" demektir. Aşağıdakiler bu yüzden şart:
+    // Bu dört eylem yukarıdaki joker listesinde yok; adı ayrı listelenir.
     //   external_directory -> proje kökü/worktree dışındaki her read/edit/write
-    //   question, execute    -> onay sorusu ve Code Mode
-    //   <server>_<tool>      -> MCP araçları (her sunucu için ayrı girdi)
+    //   question            -> kullanıcıya soru sorabilme
+    //   execute             -> Code Mode
     { "action": "external_directory", "resource": "*", "effect": "allow" },
     { "action": "question", "resource": "*", "effect": "allow" },
     { "action": "execute", "resource": "*", "effect": "allow" },
@@ -87,16 +70,105 @@
     { "action": "blender_*", "resource": "*", "effect": "allow" },
     { "action": "blenderlab_*", "resource": "*", "effect": "allow" },
 
-    // ── 3) Yalnızca mimar alt ajan başlatabilir. Böylece hiçbir işçi rol
-    //       kendi ekibini kuramaz, orkestrasyon tek noktadan yönetilir.
+    // ── 2a) Yıkıcı komutlar ─────────────────────────────────────────────────
+    // `*` sıfır karakteri de kapsar: `rm -rf ~*` yalnız `rm -rf ~` değil,
+    // `rm -rf ~/Documents` biçimindeki her hedefi de yakalar.
+    { "action": "shell", "resource": "rm -rf /", "effect": "deny" },
+    { "action": "shell", "resource": "rm -rf /*", "effect": "deny" },
+    { "action": "shell", "resource": "rm -rf ~*", "effect": "deny" },
+    { "action": "shell", "resource": "rm -rf C:*", "effect": "deny" },
+    { "action": "shell", "resource": "rm -rf /c/*", "effect": "deny" },
+    { "action": "shell", "resource": "rm -rf --no-preserve-root*", "effect": "deny" },
+    { "action": "shell", "resource": "Remove-Item * -Recurse *", "effect": "deny" },
+
+    // Düz push serbest; uzaktaki geçmişi ezen zorlamalı varyantlar yasak
+    // (--force-with-lease de kapsamdadır).
+    { "action": "shell", "resource": "git push --force*", "effect": "deny" },
+    { "action": "shell", "resource": "git push -f*", "effect": "deny" },
+    { "action": "shell", "resource": "git reset --hard *", "effect": "deny" },
+    { "action": "shell", "resource": "git clean *", "effect": "deny" },
+
+    // Paket yayımlama geri alınamaz.
+    { "action": "shell", "resource": "npm publish*", "effect": "deny" },
+    { "action": "shell", "resource": "pnpm publish*", "effect": "deny" },
+    { "action": "shell", "resource": "yarn publish*", "effect": "deny" },
+
+    // Uzak betiği indirip çalıştırma. Yorumlayıcı adı Sonda aranır; `| grep sh`
+    // gibi borular yanlış eşleşmesin diye sona çivilendi. Spasız varyant `*sh`,
+    // bayraklı varyant `-*`; `sh` ve `bash` ailelerinin ikisi de kapalı.
+    { "action": "shell", "resource": "*| sh", "effect": "deny" },
+    { "action": "shell", "resource": "*| sh -*", "effect": "deny" },
+    { "action": "shell", "resource": "*| bash", "effect": "deny" },
+    { "action": "shell", "resource": "*| bash -*", "effect": "deny" },
+    { "action": "shell", "resource": "*|*sh", "effect": "deny" },
+    { "action": "shell", "resource": "*|*sh -*", "effect": "deny" },
+
+    // ── 2b) Sır yasakları ───────────────────────────────────────────────────
+    // Yazmakla yetinmek yetmez: OKUMAK da sızıntıdır; `read` ve `edit` için aynı
+    // desenler yazılır. Desende `*` yol ayracını da kapsar, `**/` öneği gerekmez.
+    // Motor `\` -> `/` normalize eder (her OS'ta) ve Windows'ta harf duyarsızdır.
+    { "action": "read", "resource": "*.env", "effect": "deny" },
+    { "action": "read", "resource": "*.env.*", "effect": "deny" },
+    { "action": "read", "resource": "*.pem", "effect": "deny" },
+    { "action": "read", "resource": "*.key", "effect": "deny" },
+    { "action": "read", "resource": "*.npmrc", "effect": "deny" },
+    { "action": "read", "resource": "*.git/config", "effect": "deny" },
+    { "action": "read", "resource": "*id_rsa*", "effect": "deny" },
+
+    // Örnek dosyalar istisnası. Bu bir GÜVENLİK GARANTİSİ DEĞİL, tercih:
+    // `.env.example|.sample|.template` adlandırması sır içermeme kuralına işaret
+    // eder, ama motor adı geçen her dosyanın sır içermediğini doğrulayamaz.
+    // Sıralama gereği `*.env.*` deny'si bunları da kapatıyordu; bu istisna
+    // dokümantasyon okumasını geri açar. `edit` tarafı kapalı kalır.
+    { "action": "read", "resource": "*.env.example", "effect": "allow" },
+    { "action": "read", "resource": "*.env.sample", "effect": "allow" },
+    { "action": "read", "resource": "*.env.template", "effect": "allow" },
+
+    { "action": "edit", "resource": "*.env", "effect": "deny" },
+    { "action": "edit", "resource": "*.env.*", "effect": "deny" },
+    { "action": "edit", "resource": "*.pem", "effect": "deny" },
+    { "action": "edit", "resource": "*.key", "effect": "deny" },
+    { "action": "edit", "resource": "*.npmrc", "effect": "deny" },
+    { "action": "edit", "resource": "*.git/config", "effect": "deny" },
+    { "action": "edit", "resource": "*id_rsa*", "effect": "deny" },
+
+    // ── 2c) Mimari kısıt ─────────────────────────────────────────────────────
+    // Yalnızca mimar alt ajan başlatabilir. Aynı desen kuralı: joker `deny`
+    // ÖNCE, daraltılmış `allow`lar SONRA.
     { "action": "subagent", "resource": "*", "effect": "deny" },
     { "action": "subagent", "resource": "crew/*", "effect": "allow" },
     { "action": "subagent", "resource": "explore", "effect": "allow" },
-    { "action": "subagent", "resource": "general", "effect": "allow" }
+    { "action": "subagent", "resource": "general", "effect": "allow" },
+
+    // ── 3) Orkestrasyon kapıları — DİZİNİN SONU ─────────────────────────────
+    // `orchestra_report`/`orchestra_task` tek yuva olan döngü ve iş paketi
+    // durumunu yazar; alt ajan "bitti" bildirirse otonom iş erken kapanır ya da
+    // defter mimarın kararını ezmez.
+    //
+    // Ölçülen ölü kapı: burada `deny` SONRA `allow` joker'ı geliyordu; son
+    // eşleşen kural kazandığı için config TEK BAŞINA HİÇBİR ŞEYİ KAPATMIYORDU.
+    // Yerleşik rollerde (`build`/`plan`/`explore`/`general`/`summary`/`title`/
+    // `compaction`) rol dosyası olmadığı için izin katmanındaki boşluk
+    // programatik kapıyı tek koruma yapıyordu.
+    //
+    // Doğru çözüm config'de joker `allow` yazmamak: `deny` en sonda kalır ve
+    // mimar kendi frontmatter'ının EN SONUNDA açık `allow` ile açar (ajan
+    // kuralları config'ten sonra birleşir, son eşleşen yine mimarınki olur).
+    // Crew rolleri `deny` taşır; rol dosyası olmayan her rol config'teki
+    // deny ile kalır.
+    //
+    // İkinci katman: araç `context.agent`'i denetler; izin boru hattı değişse
+    // de programatik kapı yerinde kalır (bkz. tools.ts).
+    { "action": "orchestra_report", "resource": "*", "effect": "deny" },
+    { "action": "orchestra_task", "resource": "*", "effect": "deny" }
   ],
 
   "agents": {
     // Mimarlık rolü .opencode/agents/architect.md dosyasında tanımlıdır.
+    //
+    // DİKKAT: buradaki `agents.<id>` girdisi rol dosyasının TAMAMINI ezer; role
+    // dosyasındaki `permissions` uygulanmaz. Bu yüzden bu blokta yalnız `description`
+    // vardır. İzin kuralı JSONC'ye taşınmak istenirse rolün frontmatter'ı bozulur.
     //
     // Model stratejisi: TÜM roller opencode/space-bunny-free kullanır — tek model,
     // sıfır maliyet, öngörülebilir davranış. Kademelendirme bilinçli olarak kapalı.

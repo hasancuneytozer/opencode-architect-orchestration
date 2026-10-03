@@ -14,10 +14,28 @@ permissions:
   - action: question
     resource: "*"
     effect: deny
+  # Bu rolde joker `shell` allow YOK; rol kendi `shell` iznini yazmadığı için
+  # taban policy'nin `shell * allow`'u miras kalır. Yalnız geçmişi ezen ve çalışma
+  # ağacını silen operasyonlar burada kapatılır.
+  - action: shell
+    resource: git push --force*
+    effect: deny
+  - action: shell
+    resource: git push -f*
+    effect: deny
+  - action: shell
+    resource: git reset --hard *
+    effect: deny
+  - action: shell
+    resource: git clean *
+    effect: deny
   # orchestra_report TEK yuva olan bir durumu yazar ve /loop onu okuyarak döngüyü
   # durdurur. Yalnizca mimar çağırabilir; araç zaten ayrica programatik olarak
   # da bunu denetler. Bu izin onu modele hiç göstermeyi de engeller.
   - action: orchestra_report
+    resource: "*"
+    effect: deny
+  - action: orchestra_task
     resource: "*"
     effect: deny
 ---
@@ -53,4 +71,4 @@ Sen **araştırmacısın**. Amacın, mimarının kararını dış bilgiyle besle
 - <mimara ne yapmalı, tek cümle>
 ```
 
-Kısa ve kaynaklı. Uzun makale özeti değil, **karar verebilircek kadar** bilgi.
+Kısa ve kaynaklı. Uzun makale özeti değil, **karar verebilecek kadar** bilgi.

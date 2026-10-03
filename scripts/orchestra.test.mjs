@@ -9,7 +9,21 @@
  * bekliyordu, base beklemeliydi).
  */
 
-import { classifyError, computeDelay, nextHealthy, sweepBreakers, loadFallbackConfig, DEFAULT_FALLBACK } from "../.opencode/plugins/orchestra/fallback.ts"
+import {
+  classifyError,
+  computeDelay,
+  nextHealthy,
+  sweepBreakers,
+  loadFallbackConfig,
+  DEFAULT_FALLBACK,
+  shouldRestore,
+  bumpRetry,
+  trimRetryCounts,
+  configForAgent,
+  parseModelRef,
+  RESTORE_GIVE_UP,
+  MAX_RESTORE_RETRIES,
+} from "../.opencode/plugins/orchestra/fallback.ts"
 
 let pass = 0
 let fail = 0
@@ -178,6 +192,164 @@ check("yazilan deger okundu (chain)", okunan.chain, ["a/b"])
 check("yazilmayan alanlar varsayilandan gelir", okunan.jitter, DEFAULT_FALLBACK.jitter)
 check("eksik dizin zarifce varsayilana duser", (await loadFallbackConfig(gecici + "/yok")).enabled, true)
 rmSync(gecici, { recursive: true, force: true })
+
+console.log("")
+console.log("")
+console.log("=== 6. GERI DONUS KARARI (saf, switchModel cagrisi iceride degil) ===")
+// Bu blok bir hatayi kilitler: karar `switchModel` cagrisinin icinde gomuluydu,
+// test edilemiyordu. Artik `shouldRestore` saf bir fonksiyon ve gerekcesi
+// ("reason") test edilebilir.
+//
+// Kilitlenen davranis: gecis kayitlari GERI DONUS cagrisi BASARILI OLMADAN
+// silinmemeli. Aksi halde oturum kalici olarak yedek modelde kaliyor ve geri
+// donus bir daha denenmiyordu.
+const acikCfg = { ...DEFAULT_FALLBACK, autoSwitch: true, chain: ["p/b"] }
+const karar = (over) => shouldRestore({ config: acikCfg, mark: 3, retryTotal: 3, original: "p/a", failedRestores: 0, ...over })
+
+// 1) Yapilandirma kapali -> geri donus olmaz
+check("config-off: autoSwitch kapali", karar({ config: { ...acikCfg, autoSwitch: false } }).reason, "config-off")
+check("config-off: autoSwitch kapali -> restore yok", karar({ config: { ...acikCfg, autoSwitch: false } }).restore, false)
+check("config-off: restoreOnRecovery kapali", karar({ config: { ...acikCfg, restoreOnRecovery: false } }).reason, "config-off")
+check("config-off: enabled kapali", karar({ config: { ...acikCfg, enabled: false } }).reason, "config-off")
+check("config-off varsayilan autoSwitch'i kapatir", karar({ config: DEFAULT_FALLBACK }).reason, "config-off")
+
+// 2) Isaret yok -> bu oturumda gecis yapilmamis
+check("no-mark: isaret tanimsiz", karar({ mark: undefined }).reason, "no-mark")
+check("no-mark: retryTotal var olsa da olmaz", karar({ mark: undefined, retryTotal: 7 }).reason, "no-mark")
+
+// 3) Gecisten sonra da retry oldu -> bekle
+check("still-retrying: sayac degisti", karar({ retryTotal: 4 }).reason, "still-retrying")
+check("still-retrying: sayac AZALDI (oturum karismasi olmamali)", karar({ retryTotal: 2 }).reason, "still-retrying")
+check("still-retrying: sayac tanimsiz", karar({ retryTotal: undefined }).reason, "still-retrying")
+check("still-retrying -> restore yok", karar({ retryTotal: 4 }).restore, false)
+
+// 4) Ilk model kaydi bozuk
+check("no-original: kayit yok", karar({ original: undefined }).reason, "no-original")
+check("no-original: bos dizge", karar({ original: "" }).reason, "no-original")
+check("no-original: deneme yapilmadigi icin sayac ilerlemez", karar({ original: undefined }).nextFailedRestores, 0)
+check("invalid-original: provider'siz", karar({ original: "sadece-model" }).reason, "invalid-original")
+check("invalid-original: bos id", karar({ original: "p/" }).reason, "invalid-original")
+check("invalid-original -> restore yok", karar({ original: "sadece-model" }).restore, false)
+
+// 5) Esitlik -> geri donus
+const mutlu = karar()
+check("esit sayac -> restore", mutlu.reason, "restore")
+check("esit sayac -> restore true", mutlu.restore, true)
+check("basarisiz gecis sayaci ilerletir", mutlu.nextFailedRestores, 1)
+check("id gecisi olan referans kabul edilir", karar({ original: "p/a/b" }).reason, "restore")
+
+// 6) Sinir: hata halinde kayit KORUNUR, bir kez daha denenir, sonra vazgecildi
+const h1 = karar()
+const h2 = karar({ failedRestores: h1.nextFailedRestores })
+const h3 = karar({ failedRestores: h2.nextFailedRestores })
+check("hatali geri donus: 1. deneme restore", h1.reason, "restore")
+check("hatali geri donus: kayit korundu, 2. deneme YINE restore", h2.reason, "restore")
+check("hatali geri donus: sinirdan sonra vazgecildi", h3.reason, "restore-limit")
+check("hatali geri donus: dongu kapandi", h3.restore, false)
+check("hatali geri donus: vazgecmede sayac ilerlemez", h3.nextFailedRestores, 2)
+check("restore-limit sinir degeri", MAX_RESTORE_RETRIES, 1)
+
+// 7) Vazgecme gerekceleri kaydi BIRAKIR; digerleri KORUR
+check("vazgecme: config-off kaydi birakir", RESTORE_GIVE_UP.includes("config-off"), true)
+check("vazgecme: no-original kaydi birakir", RESTORE_GIVE_UP.includes("no-original"), true)
+check("vazgecme: invalid-original kaydi birakir", RESTORE_GIVE_UP.includes("invalid-original"), true)
+check("vazgecme: restore-limit kaydi birakir", RESTORE_GIVE_UP.includes("restore-limit"), true)
+check("vazgecme: no-mark KAYDI KORUR", RESTORE_GIVE_UP.includes("no-mark"), false)
+check("vazgecme: still-retrying KAYDI KORUR", RESTORE_GIVE_UP.includes("still-retrying"), false)
+
+// 8) Bozuk girdi guvenli
+check("NaN failedRestores guvenli taban", karar({ failedRestores: NaN }).reason, "restore")
+check("NaN failedRestores sayac ilerletmez", karar({ failedRestores: NaN }).nextFailedRestores, 1)
+check("negatif failedRestores guvenli taban", karar({ failedRestores: -3 }).reason, "restore")
+check("Olmayan ajan -> taban config", karar({ mark: undefined, config: DEFAULT_FALLBACK }).reason, "config-off")
+
+console.log("")
+console.log("=== 7. MODEL REFERANSI AYIRMA ===")
+check("p/m ayristirilir", parseModelRef("p/m"), { providerID: "p", id: "m" })
+check("coklu slash id'ye girer", parseModelRef("p/vendor/model:v2"), { providerID: "p", id: "vendor/model:v2" })
+check("bos dizge reddedilir", parseModelRef(""), undefined)
+check("bosluk dizge reddedilir", parseModelRef("   "), undefined)
+check("tanimsiz reddedilir", parseModelRef(undefined), undefined)
+check("sadece provider reddedilir", parseModelRef("p"), undefined)
+
+console.log("")
+console.log("")
+console.log("=== 8. OTURUM IZOLASYONU (regresyon) ===")
+// Bu blok bir hatayi kilitler: retry sayaci TEK GLOBAL bir sayacti. Paralel
+// oturumdan gelen TEK BIR retry, bu oturumun `mark`ini degistiriyor ve geri
+// donus HIC GERCEKLESMIYORDU. Simdi sayac `Map<sessionID, number>`.
+const sayac = new Map()
+bumpRetry(sayac, "sA")
+bumpRetry(sayac, "sA")
+const markA = sayac.get("sA")
+check("iki oturumun sayaci birbirini bozmuyor", markA, 2)
+bumpRetry(sayac, "sB")
+check("B'nin retry'i A'nin sayacini degistirmedi", sayac.get("sA"), 2)
+check("B kendi sayacini tutuyor", sayac.get("sB"), 1)
+check("B icin mark/retry esitse donus olur", shouldRestore({ config: acikCfg, mark: sayac.get("sB"), retryTotal: sayac.get("sB"), original: "p/a", failedRestores: 0 }).reason, "restore")
+
+// ESKI davranisin canli taklidi: tek global sayac
+const globalSayac = { n: 0 }
+globalSayac.n += 1
+const eskiMark = globalSayac.n
+globalSayac.n += 1
+globalSayac.n += 1 // yalnizca B icin, ama A'yi da bozdu
+check("ESKI: global sayac A'nin donusunu engelliyordu", shouldRestore({ config: acikCfg, mark: eskiMark, retryTotal: globalSayac.n, original: "p/a", failedRestores: 0 }).reason, "still-retrying")
+check("YENI: ayni senaryoda oturum bazli sayac donusu SERBEST BIRAKIYOR", shouldRestore({ config: acikCfg, mark: 2, retryTotal: sayac.get("sA"), original: "p/a", failedRestores: 0 }).reason, "restore")
+
+// Sinirli temizleme: harita sinirsiz buyumesin
+const dolu = new Map()
+for (const id of ["s1", "s2", "s3", "s4", "s5"]) bumpRetry(dolu, id)
+const atilan = trimRetryCounts(dolu, ["s1"], 2)
+check("sinir asilirken en eskiler atilir", atilan, ["s2", "s3", "s4"])
+check("sinir uygulandi", dolu.size, 2)
+check("isaretli oturum KORUNUR", dolu.has("s1"), true)
+check("isaretsizler silinir", dolu.has("s2"), false)
+check("sinirin altinda hicbiri atilmaz", trimRetryCounts(new Map([["s1", 1], ["s2", 2]]), [], 5), [])
+check("sinir 0 -> budama kapali", trimRetryCounts(new Map([["s1", 1]]), [], 0), [])
+const hepsiIsaretli = new Map([["s1", 1], ["s2", 2]])
+check("hepsi isaretliyse budama yalniz oturumu silmez", trimRetryCounts(hepsiIsaretli, ["s1", "s2"], 1), [])
+check("hepsi isaretliyse kayitlar durur", hepsiIsaretli.size, 2)
+
+console.log("")
+console.log("")
+console.log("=== 9. perAgent GECERSIZ KILMALARI (regresyon) ===")
+// Bu blok bir hatayi kilitler: karar `configFor(event.agent)` ile aliniyordu,
+// `note` ise `baseConfig.learnFromFailures` okuyordu; ayarli roller icin not
+// YAZILIYORDU. Ayrica geri donus yolunda `configFor(undefined)` kullaniliyordu,
+// yani perAgent gecersiz kilmalari o yolda hic uygulanmiyordu.
+const perAjanli = {
+  ...DEFAULT_FALLBACK,
+  autoSwitch: true,
+  chain: ["p/b"],
+  perAgent: {
+    mimar: { learnFromFailures: false },
+    "sessiz-rol": { autoSwitch: false, learnFromFailures: false },
+  },
+}
+
+check("ajan bilinmiyorsa taban config", configForAgent(perAjanli).learnFromFailures, true)
+check("ajan bilinmiyorsa autoSwitch tabandan", configForAgent(perAjanli).autoSwitch, true)
+check("tanimsiz ajan tabana duser", configForAgent(perAjanli, "olmayan-rol").learnFromFailures, true)
+check("note karari perAgent.learnFromFailures:false'a uyar", configForAgent(perAjanli, "mimar").learnFromFailures, false)
+check("gecersiz kilma diger alanlari bozmaz", configForAgent(perAjanli, "mimar").chain, ["p/b"])
+check("gecersiz kilma taban autoSwitch'i korur", configForAgent(perAjanli, "mimar").autoSwitch, true)
+check("rol bazli autoSwitch kapali", configForAgent(perAjanli, "sessiz-rol").autoSwitch, false)
+check(
+  "geri donus yolunda perAgent UYGULANIYOR (autoSwitch kapali rol)",
+  shouldRestore({ config: configForAgent(perAjanli, "sessiz-rol"), mark: 3, retryTotal: 3, original: "p/a", failedRestores: 0 }).reason,
+  "config-off",
+)
+check(
+  "geri donus yolunda perAgent UYGULANIYOR (gecis yapan rol)",
+  shouldRestore({ config: configForAgent(perAjanli, "mimar"), mark: 3, retryTotal: 3, original: "p/a", failedRestores: 0 }).reason,
+  "restore",
+)
+check(
+  "perAgent restoreOnRecovery kapali -> config-off",
+  shouldRestore({ config: { ...configForAgent(perAjanli, "mimar"), restoreOnRecovery: false }, mark: 3, retryTotal: 3, original: "p/a", failedRestores: 0 }).reason,
+  "config-off",
+)
 
 console.log("")
 console.log("SONUC: " + pass + " gecti, " + fail + " kaldi")

@@ -8,3 +8,7 @@ node_modules/
 .worktrees/
 *.log
 .DS_Store
+
+# Proje-yerel acik kod runtime'i (pinned @opencode paketleri + indirilen Node + ozel hafiza).
+# Tamamen bu depoya ait; global kuruluma hicbir sey yazmaz. Silmek runtime'i sifirlar.
+.orchestra-runtime/
