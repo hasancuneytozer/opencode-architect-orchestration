@@ -90,7 +90,13 @@ chunk'ını geri yükler — git ağacına, `reset`/`stash` ile dokunmaz, hafız
 > build'i çalıştırılmaz, resmî EXE yeniden derlenmez — dağıtım indirilmiş `dist`'e hash'lenmiş
 > yerel yamadanır. Bu yüzden "upstream hata düzeltti" denmez, yalnızca "bu çalışma kopyasında
 > ölçüldü" denir. Kanıt dosyaları `.gitignore`'lı ve yereldir; **yeni bir klon sonuçları
-> görmez**. `npm run typecheck` ve `npm test` bu dağıtımdan önce kırmızıdır ve düzeltilmemiştir.
+> görmez**. Bu dağıtımın **taze yayın adayında** (2026-10-03) kök kontrol yeşildir:
+> `npm run typecheck` çıkış **0**, `npm test` çıkış **0** — 8 dosyada **1192 kontrol geçti,
+> 0 başarısız** (208 + 125 + 178 + 96 + 108 + 123 + 93 + 261). Bu paketin kendi testi **ayrıdır**:
+> `npm run test:local-runtime` `npm test`'in parçası **değildir**; kendi 48 kontrolünü Node
+> **22.16.0** ve **24.21.0** altında 48/48 geçer. Yukarıdaki 6 senaryo ise **önceki P20
+> anlık görüntüsüdür**, bu adayda yeniden koşulmadı. P17/P23'teki kırmızı ölçümler **bu adayda
+> yeniden üretilmedi**; "hatayı biz düzelttik" denmez.
 
 Ayrıntılı/teknik sürüm, güvenlik sözleşmesi, hash değerleri ve lisans atfı:
 [`tools/opencode-runtime/README.md`](tools/opencode-runtime/README.md).
@@ -159,8 +165,12 @@ AGENTS.md                          deponun çalışma kuralları (otomatik yükl
     └── state.json                 döngü durumu + plugin tanılaması (geçici)
     + *.lock                       süreçler arası yazma kilidi (geçici)
 
-scripts/*.test.mjs + .opencode/scripts/*.test.mjs   regresyon testleri (npm test; yeşil DEĞİL)
+scripts/*.test.mjs + .opencode/scripts/*.test.mjs   regresyon testleri (npm test; 8 dosya, 1192 kontrol)
 ```
+
+`npm test` yalnızca bu ağacın kök regresyonlarını koşar: **8 dosya, 1192 kontrol**. Runtime
+paketinin testi ayrı bir komuttur ve `npm test`'e **dahil değildir**: `npm run test:local-runtime`
+(**48 kontrol**).
 
 Roller, beceriler ve komutlar **düz dosyadır**. Eklemek = dosya eklemek, çıkarmak = dosya
 silmek. Kod bilmene gerek yok.

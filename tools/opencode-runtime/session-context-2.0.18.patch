@@ -1,0 +1,57 @@
+# orchestra-project-opencode-runtime - canonical upstream fix (SessionContext await-activation barrier)
+#
+# upstream project : github.com/anomalyco/opencode, packages/core   (license: MIT)
+# upstream tag      : v2.0.18
+# upstream commit   : cd9a14a6b688d4021bee381dfd39d2cef9c0f862
+# commit provenance : pinned official v2.0.18 source from the prior isolated investigation;
+#                     this deployment did not re-fetch or build the upstream source
+# upstream file     : packages/core/src/session/context.ts
+# upstream .ts sha256: d6ebd9b3673c682161d87e45dc806ecfc4d0d70572c2001579af871730f611d5
+#
+# What it does:
+#   SessionContext.select read the plugin activation latch *after* it had already chosen the
+#   agent, so a role that was not yet materialised produced AgentNotFound. The patch inserts a
+#   five-line barrier between yield* mcpTools.flush and const agent = yield* agents.select(...)",
+
+#   ../plugin/service.js (that barrel has no default export; import Plugin from would be undefined).
+#
+# What it deliberately does not do:
+#   - no Service.layer graph change: the service is resolved at call time via serviceOption, so a
+#     context without Plugin.Service yields Effect.void and no cycle is introduced
+#   - no retry logic, no cache, no timeout
+#   - no permission grant: the guard only orders the read; the agent lookup after it still fails
+#     for a genuinely missing role
+#
+# This diff is against upstream TypeScript source. The published dist is a barrel
+# (dist/session/context.js) that re-exports a content-hashed chunk, so patch.mjs resolves the chunk
+# and applies the same insertion there, byte-verified against sha256
+#   before 09b0ed4dae1749183a35f2a034b294702100bc1d9867e78a08fe4d9585a6722b  (5819 bytes)
+#   after  8059d066210bbfd04511aeacbe13589f6ca5481254b8c8c2215b8869943a36cc  (6050 bytes)
+#diff --git a/packages/core/src/session/context.ts b/packages/core/src/session/context.ts
+--- a/packages/core/src/session/context.ts
++++ b/packages/core/src/session/context.ts
+@@ -1,8 +1,9 @@
++import { Plugin } from "../plugin/service.js";
+ export * as SessionContext from "./context.js"
+ 
+ import { Model } from "../model.js"
+ import { Permission } from "../permission.js"
+-import { Context, Effect, Layer } from "effect"
++import { Option, Context, Effect, Layer } from "effect"
+ import { Agent } from "../agent.js"
+ import { CodeModeInstructions } from "../codemode/instructions.js"
+ import { Database } from "../database/database.js"
+@@ -124,7 +125,12 @@
+       if (session.location.directory !== location.directory || session.location.workspaceID !== location.workspaceID)
+         return yield* Effect.interrupt
+ 
+-      yield* mcpTools.flush
++      yield* mcpTools.flush;
++      yield* Effect.serviceOption(Plugin.Service).pipe(
++        Effect.flatMap((maybe) =>
++          Option.isNone(maybe) ? Effect.void : maybe.value.awaitActivation,
++        ),
++      );
+       const agent = yield* agents.select(session.agent)
+       if (!agent.info) return yield* new AgentNotFoundError({ sessionID: session.id, agent: session.agent ?? agent.id })
+       // Session permissions narrow discovery the same way they narrow the tool snapshot.
