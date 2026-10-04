@@ -11,7 +11,7 @@ vardır, kendi başına çalışan bir uygulama değildir. Kopya alındıktan so
 | 1 | `AGENTS.md` | 1. satırdaki `<PROJE ADI>` ve 3. satırdaki `<PROJE ADI> — <tek cümlelik amaç>` placeholder'larını doldur. |
 | 2 | `README.md` | Projenin kendi hikâyesi. `<PROJE ADI>` ve `<tek cümlelik amaç>` placeholder'larını doldur. |
 | 3 | `package.json` | `"name"` alanı **geçerli bir npm adı olmalı**: yalnızca küçük harf, `-` ve `_`. **Ölçüldü:** köşeli parantezli `<proje-adi>` adıyla `npm install` **çalışır** (temiz klon ölçümü: 2026-10-04'te 283 paket kuruldu, çıkış kodu 0) — yani kurulum bozulmaz. Bozulma yerleri **yayın akışıdır**: `npm publish` bu adda `EINVALIDPACKAGENAME` verir. Proje yayın edilmeyecekse geçerli adda olması şart değildir; yine de adı kopyalama anında doldurmak en temizidir. |
-| 4 | `package-lock.json` | Kökteki iki `"name"` satırı `package.json` ile **aynı** olmalı. Farklıysa ilk `npm install` lock'u sessizce yeniden yazar ve `git status` kirli kalır. |
+| 4 | `package-lock.json` | **Takip edilmez** (`.gitignore`'da). İlk `npm install` kendi lock'unu üretir ve `git status` temiz kalır — şablon, kopyalanan projeye bu makinenin transitif bağımlılıklarını taşımaz. Bedeli: her kurulum sürümleri kendi çözer, yani "klon → kur → aynı test sonucu" garantisi **yoktur**. Çözümleme kilitlemek istersen `npm ci` kullan; o zaman lock'u commit etmen gerekir. |
 | 5 | `docs/BOILERPLATE.md` | Bu dosyayı **silme**; sürüm güncellemeleri için referans olarak kalır. |
 
 ## Kopyadan sonra doğrulama (hepsi yeşil olmadan bitti deme)
@@ -23,7 +23,7 @@ npm test
 opencode plugin list       # orchestra satırı görünmeli
 opencode debug agents      # architect + crew/* görünmeli
 
-git status                 # "temiz" olmalı — npm install lock'u DEĞİŞTİRMEMELİ
+git status                 # "temiz" olmalı — npm install hiçbir dosyayı değiştirmemeli
 ```
 
 > **`opencode plugin list` ve `opencode debug agents` soğuk başlangıçta kararsızdır.**
@@ -44,6 +44,9 @@ Aşağıdakiler varsayım değil, bu makinede 2026-10-04'te ölçülmüştür:
    `failed to load plugin ... Cannot find package '@opencode/plugin' imported from
    <proje>/.opencode/plugins/orchestra/index.ts` çıkar ve tüm araçlar sessizce kaybolur.
    Sebep: hedef projede `node_modules` yok. Çözüm: hedef projede `npm install`.
+   `package-lock.json` takip **edilmediği** için her kurulum plugin'in o günki sürümünü
+   çeker; opencode CLI ile plugin sürümü kayarsa plugin yine aynı şekilde sessizce
+   yüklenmez. Belirti aynı (araçlar yok), teşhis yolu aynı: logu oku.
 2. **Hafıza her zaman hedef projenin içine yazılır.** `.opencode/plugins/orchestra/index.ts:396`
    → `Memory.open(path.join(ctx.location.directory, ".opencode", "memory"))`.
    `ctx.location.directory` proje köküdür. Yani sistemi global kurmak bile o projede

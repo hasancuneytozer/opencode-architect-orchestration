@@ -33,3 +33,9 @@ Thumbs.db
 Thumbs.db:encryptable
 ehthumbs.db
 Desktop.ini
+
+# Bağımlılık çözümleme kaydı takip edilmez. `npm install` her kurulumda kendi lock'unu
+# üretir; şablonda tutulan bir çözümleme, kopyalanan projeye bu makinenin transitif
+# bağımlılıklarını da taşır. Kural olmazsa ilk `npm install` sonrası `git status` kirli
+# kalır. Bedeli: "klon → kur → aynı test sonucu" garantisi yoktur.
+package-lock.json
