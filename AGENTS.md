@@ -1,6 +1,6 @@
-# AGENTS.md — bu deponun çalışma kuralları
+# AGENTS.md — <PROJE ADI> çalışma kuralları
 
-Bu depo, opencode için **mimar-merkezli orkestrasyon sistemini (Orchestra)** kendisi barındırır.
+Bu depo, opencode için **mimar-merkezli orkestrasyon sistemini (Orchestra) kullanır** (`.opencode/` altında). Proje: <PROJE ADI> — <tek cümlelik amaç>
 Burada değişiklik yaparken bu kurallar geçerlidir.
 
 ## Katmanlar ve dokunma sırası

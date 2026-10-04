@@ -1,7 +1,7 @@
-﻿{
-  "name": "opencode-architect-system",
+{
+  "name": "<proje-adi>",
   "version": "1.0.0",
-  "description": "opencode icin mimar-merkezli, hata-ogrenen, paralel ve otonom orkestrasyon sistemi",
+  "description": "<tek cümlelik amaç>",
   "private": true,
   "type": "module",
   "scripts": {
