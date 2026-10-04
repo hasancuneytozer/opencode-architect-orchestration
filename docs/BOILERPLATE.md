@@ -27,13 +27,14 @@ git status                 # "temiz" olmalı — npm install lock'u DEĞİŞTİR
 ```
 
 > **`opencode plugin list` ve `opencode debug agents` soğuk başlangıçta kararsızdır.**
-> Ölçüldü: `git init` sonrası ilk çağrılar **çıkış kodu 0** ile `No plugins found` döndü;
-> düzelmesi **üçüncü çalıştırmada** oldu. `debug agents` de aynı şekilde etkileniyor: ilk
-> çağrı **536 satır** döndü ve `architect`/`crew/*` **yoktu** (sağlıklı çıktı ~6.700 satır).
-> Yani çıkış kodu 0 "plugin yüklü" / "roller çözüldü" demek **değildir**. Çıktıda
-> `orchestra` satırı ve `architect` + `crew/` **gerçekten** var mı diye bak; yoksa komutu
-> tekrarla. Sağlıklı `debug agents` çıktısı ~6.700 satırdır — tamamını okuma, `architect`
-> ve `crew/` satırlarını ara.
+> Ölçüldü: `git init`/`git clone` sonrası ilk çağrılar **çıkış kodu 0** ile `No plugins found`
+> döndü. `debug agents` de aynı şekilde etkileniyor: ilk çağrı **536 satır** döndü ve
+> `architect`/`crew/*` **yoktu** (sağlıklı çıktı ~6.700 satır). Kararsızlık **deneme sayısına
+> değil süreye bağlı**: arka arkaya hızlı çağrılar servisin ısınmasından önce düşer.
+> Doğru tedavi: **birkaç saniye bekleyip tekrar dene**. Çıkış kodu 0 "plugin yüklü" /
+> "roller çözüldü" demek **değildir** — çıktının içeriğini doğrula: `orchestra` satırı ve
+> `architect` + `crew/` gerçekten var mı? Sağlıklı `debug agents` çıktısı ~6.700 satırdır;
+> tamamını okuma, `architect` ve `crew/` satırlarını ara.
 
 ## Ölçülmüş tuzaklar (bu klasörün canlı ortamda ölçülmüş hataları)
 
