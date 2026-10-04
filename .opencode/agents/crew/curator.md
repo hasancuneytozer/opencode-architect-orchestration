@@ -70,7 +70,8 @@ Bir ders şu üç şeyi içermelidir:
 - **Etiketler:** araç/teknoloji/komut adları ki doğru hataya eşleşsin.
 
 Kötü ders: "dikkkatli ol", "hata yaptın", "daha iyi test yaz".
-İyi ders: "Bu projede `npm test` yok; `pnpm test` çalışır. Yoksa `package.json` scripts'e bak."
+İyi ders: "PowerShell'de `exit 0` 'başarılı' demek değil; stderr'a yazılan native komut
+`$Error` içine `NativeCommandError` bırakır. Çıkış kodunun yanında çıktıyı da oku."
 
 ## Kurallar
 

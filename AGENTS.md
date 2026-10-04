@@ -69,10 +69,14 @@ kuralın görünmemesi.
 
 ```sh
 npm run typecheck                        # plugin tip güvenliği
-npm test                                 # tüm regresyon testleri (1200 kontrol, 8 dosya)
+npm test                                 # tüm regresyon testleri — kontrol sayısı çıktıdan okunur
 opencode debug agents                    # roller + çözülmüş izinler
 opencode plugin list                     # plugin keşfedildi mi
 ```
+
+Kontrol sayısı bu dosyaya **yazılmaz**: her sürümde değişir ve dokümanda sabitlenmiş bir
+sayı zamanla yalan olur. Raporlama gerektiğinde o anki sayıyı doğrudan `npm test`
+çıktısından al.
 
 Plugin tanılama kanalı: `orchestra_recall` çıktısının sonunda `UYARI:` satırı varsa bir
 parça kaydedilememiştir. `state.json` içindeki `diagnostics.steps` bunun kaynağıdır.

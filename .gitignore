@@ -12,3 +12,24 @@ node_modules/
 # Proje-yerel acik kod runtime'i (pinned @opencode paketleri + indirilen Node + ozel hafiza).
 # Tamamen bu depoya ait; global kuruluma hicbir sey yazmaz. Silmek runtime'i sifirlar.
 .orchestra-runtime/
+
+# Çalışma zamanı çıktıları ve yerel dosyalar. Boilerplate kopyasında bunlar takip edilirse
+# projenin git gürültüsü olur; sır olabilecek dosyalar da sessizce commit'e girebilir.
+logs/
+coverage/
+auth.json
+.env
+.env.*
+*.pem
+*.key
+
+# Şablon dosyalar istisnadır: örnek dosyalar takip edilebilmeli, gerçek sırlar değil.
+!.env.example
+!.env.sample
+!.env.template
+
+# Windows / macOS çöpleri. `.DS_Store` macOS içindir; Windows'un karşılığı burada.
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini

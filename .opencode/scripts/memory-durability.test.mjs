@@ -341,7 +341,7 @@ await bolum("5. BOS SORGULU recall TUM AKTIF DERSLERI DONER", async () => {
   check("limit bos sorguda da gecerli", m.recall("", { limit: 2 }).length, 2)
 
   // ESKİ SIRA HATASI: bu üç eşleşme kontrolü emekliye ayırma satırından
-  // SONRA çalışıyordu. `recall` retired dersi filtreler (memory.ts:795
+  // SONRA çalışıyordu. `recall` retired dersi filtreler (memory.ts:1418
   // `status !== "active"`), yani L-0002 o noktada zaten emekliydi ve
   // "kuraldan eslesme" kurgusal olarak boş döndü. Eşleşmeler ÖNCE,
   // emeklilik sözleşmesi EN SON doğrulanır.
@@ -379,7 +379,7 @@ await bolum("6. HITS SAYACI KALICI VE SEYREK", async () => {
   for (let i = 1; i <= 3; i++) await m.add({ title: `Ders ${i}`, rule: `${i}. kurali rapor` })
 
   // Her blok 3 dersi de enjekte eder → kuyruk +3. Eşik `HITS_FLUSH_EVERY = 5`
-  // (memory.ts:106), yani boşaltma 2., 4. ve 6. blokta olur.
+  // (memory.ts:272), yani boşaltma 2., 4. ve 6. blokta olur.
   const blok = (ad) => {
     m.setGoal(ad, "rapor kurali", ad)
     return m.buildBlock(ad, "coder")

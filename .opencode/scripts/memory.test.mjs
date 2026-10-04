@@ -13,7 +13,7 @@
  * kalıcı olarak zehirlenir.)
  *
  * YÜKLEME NOTU: `memory.ts` TypeScript *parametre özelliği* kullanıyor
- * (memory.ts:162-166, `private constructor(private readonly dir: string ...)`).
+ * (memory.ts:919-923, `private constructor(private readonly dir: string ...)`).
  * Bu bir emit dönüşümüdür, sadece tip söz dizimi değildir; bu yüzden Node'un
  * strip-only modu (`--experimental-strip-types`) bu dosyayı YÜKLEYEMEZ:
  * "TypeScript parameter property is not supported in strip-only mode".
@@ -172,7 +172,7 @@ console.log("=== 3. YAKALAMA KUYRUK (capture / persistCapture) ===")
   const hashli = m.capture({ tool: "edit", message: "bilinen mesaj" })
   check("klass yoksa imza arac:hash", hashli.signature.startsWith("edit:"), true)
 
-  // Kuyruk, dis sifirlamadan SONRA uygulanir (memory.ts:294-296): kullanici
+  // Kuyruk, dis sifirlamadan SONRA uygulanir (memory.ts:1214-1216): kullanici
   // dosyayi silerse, henuz yazilmamis kayit sifirlamayi gormemeli.
   await fs.writeFile(dosya, "", "utf8")
   await m.persistCapture()
@@ -194,7 +194,7 @@ console.log("=== 4. BOZUK SATIR TOLERANSI (lessons.jsonl) ===")
       JSON.stringify(gecerliDers("L-0042", "Gecerli ders")),
       "{'tek tirnak': 1}",                   // gecersiz JSON -> atla
       "123",                                 // JSON ama ders degil -> atla
-      JSON.stringify({ id: "L-0043" }),      // tags dizisi yok -> atla (memory.ts:187)
+      JSON.stringify({ id: "L-0043" }),      // tags dizisi yok -> atla (memory.ts:980)
       "",                                    // bos satir -> atla
       JSON.stringify(gecerliDers("L-0044", "Ikinci gecerli")),
     ].join("\n") + "\n",
@@ -320,7 +320,7 @@ console.log("=== 7. RESYNC (dis degisiklik algilama) ===")
   check("sync() kendi dersimizi koruyor", m.get(ilk.id)?.title, "Ilk")
   check("sync() sonrasi 2 ders", m.list().length, 2)
 
-  // commit() yolu resync'i once yapar (memory.ts:240-247): harici satirlar
+  // commit() yolu resync'i once yapar (memory.ts:1125-1134): harici satirlar
   // silinmemeli, ayni anda yeni ders eklenmeli.
   await fs.appendFile(dosya, JSON.stringify(gecerliDers("L-0010", "Harici iki")) + "\n", "utf8")
   const ucuncu = await m.add({ title: "Ucuncu", rule: "ucuncu kural" })

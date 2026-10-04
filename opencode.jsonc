@@ -14,7 +14,7 @@
   // Roller ve beceriler dosya tabanlıdır: eklemek/çıkarmak = dosya eklemek/silmek.
   // Plugin otomatik keşfedilir (.opencode/plugins/); `plugins` dizisine yazmak
   // iki kez yüklenmesine yol açabilir, o yüzden dokunulmaz.
-  // Bu klasörü olduğu gibi başka projeye kopyalarsan sistem tamamen taşınır.
+  // Taşıma yolları ve ölçülmüş farkları (git klonu / klasör kopyası): docs/BOILERPLATE.md
   // ─────────────────────────────────────────────────────────────────────────
 
   "default_agent": "architect",
@@ -25,9 +25,12 @@
   // (ör. ücretli bir sağlayıcı) düşebilir.
   "model": "opencode/space-bunny-free",
 
-  // Paralel yazma çakışmalarını çözmek için ayrı çalışma ağaçları bu dizine açılır.
+  // Paralel yazma çakışmalarını çözmek için ayrı çalışma ağaçları proje kökü
+  // İÇİNDEKİ `.worktrees/` dizinine açılır; `.gitignore` içindeki `.worktrees/`
+  // kuralı bu yolu susturur. Proje dışına çıkarsan (`../`) aynı ana dizindeki iki
+  // boilerplate kopyası aynı worktree dizinine yazar ve çakışır.
   "worktree": {
-    "directory": "../.worktrees"
+    "directory": ".worktrees"
   },
 
   "permissions": [

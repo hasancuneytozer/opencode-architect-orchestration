@@ -1,7 +1,8 @@
 # BOILERPLATE — bu klasörü yeni bir projeye taşıma
 
-Bu depo bir **opencode project boilerplate**'idir. Kendisi bir uygulama değildir; içinde
-taşınacak altyapı vardır. Yeni bir proje bu klasörden **kopyalanarak** kurulur.
+Bu klasör bir **şablondan kopyalanarak** kurulan bir proje köküdür; içinde taşınacak altyapı
+vardır, kendi başına çalışan bir uygulama değildir. Kopya alındıktan sonra bu dosya yalnızca
+**tarihsel bir referans** olur: aşağıdaki tarifler kopyanın o andaki hâlini anlatır.
 
 ## Kopya alırken değiştirilecekler (ZORUNLU)
 
@@ -9,7 +10,7 @@ taşınacak altyapı vardır. Yeni bir proje bu klasörden **kopyalanarak** kuru
 | --- | --- | --- |
 | 1 | `AGENTS.md` | 1. satırdaki `<PROJE ADI>` ve 3. satırdaki `<PROJE ADI> — <tek cümlelik amaç>` placeholder'larını doldur. |
 | 2 | `README.md` | Projenin kendi hikâyesi. `<PROJE ADI>` ve `<tek cümlelik amaç>` placeholder'larını doldur. |
-| 3 | `package.json` | `"name"` alanı **geçerli bir npm adı olmalı**: yalnızca küçük harf, `-` ve `_`. **Ölçüldü:** köşeli parantezli `<proje-adi>` adıyla `npm install` **çalışır** (286 paket kuruldu, çıkış kodu 0) — yani kurulum bozulmaz. Bozulma yerleri **yayın akışıdır**: `npm publish` bu adda `EINVALIDPACKAGENAME` verir. Proje yayın edilmeyecekse geçerli adda olması şart değildir; yine de adı kopyalama anında doldurmak en temizidir. |
+| 3 | `package.json` | `"name"` alanı **geçerli bir npm adı olmalı**: yalnızca küçük harf, `-` ve `_`. **Ölçüldü:** köşeli parantezli `<proje-adi>` adıyla `npm install` **çalışır** (temiz klon ölçümü: 2026-10-04'te 283 paket kuruldu, çıkış kodu 0) — yani kurulum bozulmaz. Bozulma yerleri **yayın akışıdır**: `npm publish` bu adda `EINVALIDPACKAGENAME` verir. Proje yayın edilmeyecekse geçerli adda olması şart değildir; yine de adı kopyalama anında doldurmak en temizidir. |
 | 4 | `package-lock.json` | Kökteki iki `"name"` satırı `package.json` ile **aynı** olmalı. Farklıysa ilk `npm install` lock'u sessizce yeniden yazar ve `git status` kirli kalır. |
 | 5 | `docs/BOILERPLATE.md` | Bu dosyayı **silme**; sürüm güncellemeleri için referans olarak kalır. |
 
@@ -25,11 +26,14 @@ opencode debug agents      # architect + crew/* görünmeli
 git status                 # "temiz" olmalı — npm install lock'u DEĞİŞTİRMEMELİ
 ```
 
-> **`opencode plugin list` soğuk başlangıçta kararsızdır.** Ölçüldü: `git init` sonrası ilk
-> çağrılar **çıkış kodu 0** ile `No plugins found` döndü, üçüncü çalıştırmada düzeldi.
-> Yani çıkış kodu 0 "plugin yüklü" demek **değildir** — çıktıda `orchestra` satırı gerçekten
-> var mı diye bak, gerekirse komutu iki kez çalıştır. `opencode debug agents` çıktısı da
-> ~6.700 satırdır; tamamını okumak yerine `architect` ve `crew/` satırlarını ara.
+> **`opencode plugin list` ve `opencode debug agents` soğuk başlangıçta kararsızdır.**
+> Ölçüldü: `git init` sonrası ilk çağrılar **çıkış kodu 0** ile `No plugins found` döndü;
+> düzelmesi **üçüncü çalıştırmada** oldu. `debug agents` de aynı şekilde etkileniyor: ilk
+> çağrı **536 satır** döndü ve `architect`/`crew/*` **yoktu** (sağlıklı çıktı ~6.700 satır).
+> Yani çıkış kodu 0 "plugin yüklü" / "roller çözüldü" demek **değildir**. Çıktıda
+> `orchestra` satırı ve `architect` + `crew/` **gerçekten** var mı diye bak; yoksa komutu
+> tekrarla. Sağlıklı `debug agents` çıktısı ~6.700 satırdır — tamamını okuma, `architect`
+> ve `crew/` satırlarını ara.
 
 ## Ölçülmüş tuzaklar (bu klasörün canlı ortamda ölçülmüş hataları)
 
@@ -251,12 +255,14 @@ AGENTS.md                          deponun çalışma kuralları (otomatik yükl
     └── state.json                 döngü durumu + plugin tanılaması (geçici)
     + *.lock                       süreçler arası yazma kilidi (geçici)
 
-scripts/*.test.mjs + .opencode/scripts/*.test.mjs   regresyon testleri (npm test; 8 dosya, 1200 kontrol)
+scripts/*.test.mjs + .opencode/scripts/*.test.mjs   regresyon testleri (npm test; sayılar çıktıdan okunur)
 ```
 
-`npm test` yalnızca bu ağacın kök regresyonlarını koşar: **8 dosya, 1200 kontrol**. Runtime
-paketinin testi ayrı bir komuttur ve `npm test`'e **dahil değildir**: `npm run test:local-runtime`
-(**48 kontrol**).
+`npm test` yalnızca bu ağacın kök regresyonlarını koşar; **kaç dosya ve kaç kontrol geçtiği
+komutun kendi çıktısından okunur** — buraya sabit sayı yazılmaz, çünkü her sürümde değişir.
+Bu depoda 2026-10-04'te ölçülen: 8 dosya, 1200 kontrol geçti, 0 başarısız. Runtime paketinin
+testi ayrı bir komuttur ve `npm test`'e **dahil değildir**: `npm run test:local-runtime`
+(2026-10-04'te ölçülen: 48 kontrol).
 
 Roller, beceriler ve komutlar **düz dosyadır**. Eklemek = dosya eklemek, çıkarmak = dosya
 silmek. Kod bilmene gerek yok.
