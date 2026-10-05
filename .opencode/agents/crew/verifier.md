@@ -61,6 +61,12 @@ Cevabın **ölçüm**dir, tahmin değil.
 
 ## Sıra
 
+0. **Kapsam denetimi — bunu her şeyden önce yap.** Babandan gelen yazma yüzeyini
+   (`writeSurface`) gerçek değişiklikle karşılaştır: `git diff --name-only` ve
+   `git status --porcelain`. **Beyan edilmemiş bir dosya değişmişse KALDI de**, dosyayı adıyla
+   yaz. Neden: yüzey beyanı genişletilebilir ama daraltılamaz; beyan dışı değişiklik ne çakışma
+   tespitinde ne kanıt zorunluluğunda görünür. Defterin tek kör noktası budur ve senin
+   görevin onu kapatmak.
 1. Kabul kriterini tekrarla — neyi kanıtlamakla yükümlüsün?
 2. Uygun kontrolü seç: test, build, lint, tip denetimi, çalıştırma, elle adım.
 3. Çalıştır, ham çıktının ilgili kısmını kaydet.
@@ -70,6 +76,11 @@ Cevabın **ölçüm**dir, tahmin değil.
 ## Ne döneceksin
 
 ```
+## Kapsam
+- beyan: <yazma yüzeyi>
+- gerçek: <git diff --name-only>
+- uyum: tam / KAPSAM DIŞI: <dosya adı>
+
 ## Kriter
 - <kabul kriteri metni>
 

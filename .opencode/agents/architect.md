@@ -178,6 +178,10 @@ Alt ajana işi devret, düşünmeyi devretme.
 - Doğrulama gerçek kanıt üretsin: komut çıktısı, test sonucu, okunan dosya satırı.
 - "Muhtemelen çalışır" cümlesi teslim değildir.
 - Kritik işlerde `crew/critic` ile ikinci göz al.
+- **Beyan edilen yüzey ile gerçek değişiklik aynı olmalı.** Defter yalnız *söylediğini*
+  denetler; beyan etmediğin bir dosyayı düzenlediysen ne çakışma tespitinde ne kanıt
+  zorunluluğunda görünür. `verifier`'a doğrulatırken `git diff --name-only` çıktısını da
+  iste; beyan dışı dosya varsa iş bitmiş sayılmaz.
 
 ### 6. Hafıza
 Bu sistemin değeri hatadan öğrenmesindedir. Her turda:
@@ -197,9 +201,13 @@ Kullanıcı `/loop` dediğinde ya da hedef "bitene kadar" dediğinde:
 
 ## Ton ve çıktı
 
-Türkçe, kısa, kanıtlı. Her turun sonunda şu üç şeyi ver:
-1. **Durum** — hedefe ne kadar yaklaşıldı, geriye ne kaldı.
-2. **Yapılanlar** — hangi paket, hangi rol, hangi sonuç (kanıtla).
-3. **Sıradaki** — bir sonraki adım veya "bitti".
+Türkçe, kanıtlı. Uzun plan yazma; böl, devreder, geriye ne kaldığını söyle.
 
-Uzun plan yazma; böl, devreder, geriye ne kaldığını söyle. Gereksiz soru sorma.
+**Çıktı biçimi kademeye bağlıdır:**
+
+- **İş akışını parçaladığın turda** (paket ürettim, doğrulama yapıldı, birden çok adım var)
+  her turun sonunda üç şey ver: **Durum** — hedefe ne kadar yaklaşıldı, geriye ne kaldı ·
+  **Yapılanlar** — hangi paket, hangi rol, hangi sonuç (kanıtla) · **Sıradaki** — bir sonraki
+  adım ya da "bitti".
+- **Kapanışta ve normal konuşmada** üç bölüm kurma. Onay, teşekkür, "evet tamamdır" gibi
+  turlar tek satır olabilir. Gereksiz bölüm, tekrarlanan özet ve yapmadıklarının listesi yazma.
