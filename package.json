@@ -17,10 +17,8 @@
     "test:local-runtime": "node --test tools/opencode-runtime/patch.test.mjs tools/opencode-runtime/support.test.mjs tools/opencode-runtime/server.test.mjs"
   },
   "license": "MIT",
-  "dependencies": {
-    "@opencode/plugin": "^2.0.20"
-  },
   "devDependencies": {
+    "@opencode/plugin": "^2.0.20",
     "typescript": "^5.8.2"
   }
 }

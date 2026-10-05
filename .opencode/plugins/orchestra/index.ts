@@ -14,7 +14,16 @@
 
 import { promises as fs } from "node:fs"
 import path from "node:path"
-import { Plugin } from "@opencode/plugin"
+// NEDEN `import type`: bu satır plugin'in **tek** paket bağımlılığıydı ve plugin'in
+// yüklenmesini `node_modules`'a bağımlı kılıyordu. Ölçüldü: `@opencode/plugin`
+// çözülemediğinde opencode plugin'i sessizce YÜKLEMİYOR ("Cannot find package
+// '@opencode/plugin'") ve altı aracın hepsi — rapor, görev, ders dahil — kayboluyor.
+// `Plugin.define` ise saf kimliktir (`dist/promise/plugin.js`: `define(p){return p}`),
+// yani yalnız TypeScript çıkarımı içindir. Bu yüzden değer importu yerine TİP
+// importu kullanılır: `verbatimModuleSyntax` ve Node'un type-stripping'i bunu
+// çalışma anında tamamen siler. Plugin artık **sıfır runtime bağımlılığıyla**
+// yüklenir; `npm install` yalnız `tsc`/test için gereklidir.
+import type { Plugin } from "@opencode/plugin/promise/plugin"
 import { registerTools } from "./tools.ts"
 import { registerLoop } from "./loop.ts"
 import { registerFallback, type FallbackHandle } from "./fallback.ts"
@@ -384,7 +393,7 @@ export async function loadCaptureConfig(root: string): Promise<CaptureConfig> {
   }
 }
 
-export default Plugin.define({
+const plugin: Plugin = {
   id: "orchestra",
 
   async setup(ctx) {
@@ -550,4 +559,6 @@ export default Plugin.define({
       await Promise.allSettled([observeHook.dispose(), promptHook.dispose(), contextHook.dispose()])
     }
   },
-})
+}
+
+export default plugin

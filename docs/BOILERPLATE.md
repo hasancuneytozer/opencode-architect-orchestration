@@ -17,36 +17,46 @@ vardır, kendi başına çalışan bir uygulama değildir. Kopya alındıktan so
 ## Kopyadan sonra doğrulama (hepsi yeşil olmadan bitti deme)
 
 ```sh
-npm install                # @opencode/plugin çözülemezse plugin yüklenmez — EN SIK HATA
+npm install                # yalnız `tsc` ve test için. Plugin'in YÜKLENMESİ için gerekmez.
 npm run typecheck
 npm test
-opencode plugin list       # orchestra satırı görünmeli
-opencode debug agents      # architect + crew/* görünmeli
 
 git status                 # "temiz" olmalı — npm install hiçbir dosyayı değiştirmemeli
 ```
 
-> **`opencode plugin list` ve `opencode debug agents` soğuk başlangıçta kararsızdır.**
-> Ölçüldü: `git init`/`git clone` sonrası ilk çağrılar **çıkış kodu 0** ile `No plugins found`
-> döndü. `debug agents` de aynı şekilde etkileniyor: ilk çağrı **536 satır** döndü ve
-> `architect`/`crew/*` **yoktu** (sağlıklı çıktı ~6.700 satır). Kararsızlık **deneme sayısına
-> değil süreye bağlı**: arka arkaya hızlı çağrılar servisin ısınmasından önce düşer.
-> Doğru tedavi: **birkaç saniye bekleyip tekrar dene**. Çıkış kodu 0 "plugin yüklü" /
-> "roller çözüldü" demek **değildir** — çıktının içeriğini doğrula: `orchestra` satırı ve
-> `architect` + `crew/` gerçekten var mı? Sağlıklı `debug agents` çıktısı ~6.700 satırdır;
-> tamamını okuma, `architect` ve `crew/` satırlarını ara.
+**Plugin gerçekten yüklendi mi? Tek güvenilir cevap:**
+
+```
+.opencode/memory/state.json  →  diagnostics.steps == { tools, loop, fallback, tasks: "ok" }
+```
+
+Plugin `setup()` çalıştıysa bu dosya **yazılır**. Dosya yoksa plugin yüklenmedi demektir.
+
+> **`opencode plugin list` YETMEZ — yükleme başarısını değil, giriş noktasını listeler.**
+> Ölçüldü: `node_modules` hiç kurulmamış bir klonda `plugin list` ikinci denemede
+> `orchestra` satırını gösterdi, ama plugin **yüklenememişti** (log: `failed to load
+> plugin`, `state.json` hiç yazılmamıştı). Aynı ayrım `opencode-swarm`'da da görüldü:
+> listede var, log'da "failed to load". Yani satırı görmek teşhis değildir.
+>
+> `opencode debug agents` ayrıca soğuk başlangıçta kararsızdır: ilk çağrı **536 satır**
+> döndü, `architect`/`crew/*` yoktu (sağlıklı çıktı ~6.700 satır). Kararsızlık deneme
+> sayısına değil **süreye** bağlı — arka arkaya hızlı çağrılar servisin ısınmasından önce
+> düşer. Doğru tedavi: **birkaç saniye bekleyip tekrar dene**. Çıkış kodu 0 "plugin yüklü" /
+> "roller çözüldü" demek **değildir**.
 
 ## Ölçülmüş tuzaklar (bu klasörün canlı ortamda ölçülmüş hataları)
 
 Aşağıdakiler varsayım değil, bu makinede 2026-10-04'te ölçülmüştür:
 
-1. **`@opencode/plugin` çözülemezse plugin sessizce yüklenmez.** Logda
-   `failed to load plugin ... Cannot find package '@opencode/plugin' imported from
-   <proje>/.opencode/plugins/orchestra/index.ts` çıkar ve tüm araçlar sessizce kaybolur.
-   Sebep: hedef projede `node_modules` yok. Çözüm: hedef projede `npm install`.
-   `package-lock.json` takip **edilmediği** için her kurulum plugin'in o günki sürümünü
-   çeker; opencode CLI ile plugin sürümü kayarsa plugin yine aynı şekilde sessizce
-   yüklenmez. Belirti aynı (araçlar yok), teşhis yolu aynı: logu oku.
+1. **Plugin yüklenemezse altı aracın hepsi kaybolur ve katalog yalan söyler.** Logda
+   `failed to load plugin ... <proje>/.opencode/plugins/orchestra/index.ts` çıkar. Bu
+   depoda ölçüldü: bir projede **82 kez** yüklenemedi ve `orchestra_report` "katalogda
+   listeli, runtime'da yok" halinde göründü; `orchestra_lesson` hiç görünmedi.
+   **Kök neden yapısal olarak kaldırıldı:** plugin artık `@opencode/plugin`'ı yalnız **TİP**
+   olarak import eder (`Plugin.define` saf kimlikti: `define(p){return p}`), yani
+   `node_modules` hiç kurulmamış bir klonda da yüklenir. Doğrulama yukarıdaki
+   `state.json → diagnostics.steps`. Yine de sorun yaşarsan tek yer logu oku:
+   `~/.local/share/opencode/log/opencode.log` (Windows'ta `%USERPROFILE%\.local\share\opencode\log\`).
 2. **Hafıza her zaman hedef projenin içine yazılır.** `.opencode/plugins/orchestra/index.ts:396`
    → `Memory.open(path.join(ctx.location.directory, ".opencode", "memory"))`.
    `ctx.location.directory` proje köküdür. Yani sistemi global kurmak bile o projede
