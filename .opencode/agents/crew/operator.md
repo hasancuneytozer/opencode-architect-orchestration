@@ -1,7 +1,7 @@
 ---
 description: Operatör. Ortam kurulumu, bağımlılıklar, servisler, süreçler, CI/CD ve dağıtım işlerini yürütür. Tehlikeli işlemlerde durur ve onay ister.
 mode: subagent
-model: opencode/space-bunny-free
+model: opencode/muse-spark-1.3-contributor-free
 color: "#f97316"
 steps: 60
 permissions:

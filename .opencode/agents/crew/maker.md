@@ -1,7 +1,7 @@
 ---
 description: Üretici. Dosya, ortam veya ürün üzerinde somut değişiklik yapar. Verilen iş paketini tam ve doğrulanabilir bitirir. Kendi işini kendi doğrulamaz.
 mode: subagent
-model: opencode/space-bunny-free
+model: opencode/muse-spark-1.3-contributor-free
 color: "#fbbf24"
 steps: 80
 permissions:

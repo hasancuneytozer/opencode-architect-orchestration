@@ -1,7 +1,7 @@
 ---
 description: Doğrulayıcı. Test/build/çalıştırma yapar, çıktıdan gerçek kanıt üretir. "Muhtemelen çalışır" demeye yetkisizdir; neyi gördüğünü olduğu gibi söyler. Hiçbir şeyi değiştirmez.
 mode: subagent
-model: opencode/space-bunny-free
+model: opencode/muse-spark-1.3-contributor-free
 color: "#22d3ee"
 steps: 60
 permissions:

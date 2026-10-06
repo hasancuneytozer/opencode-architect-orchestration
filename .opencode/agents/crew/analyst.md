@@ -1,7 +1,7 @@
 ---
 description: Derin analist. Birbirine rakip seçenekleri karşılaştırır, belirsizliği azaltır ve mimara net bir karar önerisi sunar. Değişiklik yapmaz.
 mode: subagent
-model: opencode/space-bunny-free
+model: opencode/muse-spark-1.3-contributor-free
 color: "#a78bfa"
 steps: 30
 permissions:
