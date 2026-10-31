@@ -1,12 +1,12 @@
 {
-  "name": "<proje-adi>",
+  "name": "opencode-architect-orchestration",
   "version": "1.0.0",
-  "description": "<tek cümlelik amaç>",
+  "description": "Bounded project-local OpenCode orchestration and verification policies",
   "private": true,
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --no-warnings scripts/permissions.test.mjs && node --experimental-strip-types --no-warnings scripts/orchestra.test.mjs && node --experimental-strip-types --no-warnings .opencode/scripts/capture.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/memory.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/memory-durability.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/loop.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/injection.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/tasks.test.mjs",
+    "test": "node --experimental-strip-types --no-warnings scripts/permissions.test.mjs && node --experimental-strip-types --no-warnings scripts/orchestra.test.mjs && node --experimental-strip-types --no-warnings .opencode/scripts/capture.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/memory.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/memory-durability.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/loop.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/injection.test.mjs && node --experimental-strip-types --experimental-transform-types --no-warnings .opencode/scripts/tasks.test.mjs && npm run test:hardening",
     "check": "tsc --noEmit && npm test && opencode debug agents && opencode plugin list",
     "opencode:local:setup": "node tools/opencode-runtime/local.mjs setup",
     "opencode:local:start": "node tools/opencode-runtime/local.mjs start",
@@ -14,11 +14,14 @@
     "opencode:local:stop": "node tools/opencode-runtime/local.mjs stop",
     "opencode:local:restore": "node tools/opencode-runtime/local.mjs restore",
     "opencode:local:attach": "node tools/opencode-runtime/local.mjs attach",
-    "test:local-runtime": "node --test tools/opencode-runtime/patch.test.mjs tools/opencode-runtime/support.test.mjs tools/opencode-runtime/server.test.mjs"
+    "test:local-runtime": "node --test tools/opencode-runtime/patch.test.mjs tools/opencode-runtime/support.test.mjs tools/opencode-runtime/server.test.mjs",
+    "test:hardening": "node --experimental-transform-types --no-warnings --test .opencode/scripts/hardening.test.mjs && npm run test:shared",
+    "route": "node scripts/route-task.mjs",
+    "test:shared": "node --test scripts/sync-shared.test.mjs"
   },
   "license": "MIT",
   "devDependencies": {
-    "@opencode/plugin": "^2.0.20",
+    "@opencode/plugin": "2.0.20",
     "typescript": "^5.8.2"
   }
 }

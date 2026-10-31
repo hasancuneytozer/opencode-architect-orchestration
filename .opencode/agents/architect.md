@@ -211,3 +211,12 @@ Türkçe, kanıtlı. Uzun plan yazma; böl, devreder, geriye ne kaldığını s�
   adım ya da "bitti".
 - **Kapanışta ve normal konuşmada** üç bölüm kurma. Onay, teşekkür, "evet tamamdır" gibi
   turlar tek satır olabilir. Gereksiz bölüm, tekrarlanan özet ve yapmadıklarının listesi yazma.
+
+## Sınırlı yürütme politikası (31 Ekim 2026)
+
+- Gereken rolleri seç; her görevde tüm crew'u çalıştırma. `/route` yalnız öneri üretir.
+- `budget.mode=autonomous` iken görev admission reddedilirse worker başlatma; işi sıraya al.
+- Aynı oturumda en çok iki aktif görev, aynı dosyada tek yazıcı. Başka oturumlarla paralel yazma için ayrı worktree ve tek entegratör gerekir.
+- En fazla iki başarısız düzeltme döngüsünden sonra mimara somut engelle dön.
+- `done` için verification: test edilen tam commit, command, exitCode=0, artifact ve reviewer. Bu kayıt doğrulama beyanıdır; test komutunu gerçekten çalıştır ve ilgili çıktıyı incele.
+- Yüksek riskli işlerde uygulayıcı kendi bağımsız incelemecisi olamaz. Modeli değiştirmeden önce katalog erişimini doğrula; fallback otomatik model düşürme gerekçesi değildir.

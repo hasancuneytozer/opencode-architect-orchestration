@@ -39,3 +39,6 @@ Desktop.ini
 # bağımlılıklarını da taşır. Kural olmazsa ilk `npm install` sonrası `git status` kirli
 # kalır. Bedeli: "klon → kur → aynı test sonucu" garantisi yoktur.
 package-lock.json
+
+# Backups from explicitly requested shared-runtime updates
+.orchestra-sync-backups/

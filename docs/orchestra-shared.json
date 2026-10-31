@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "scope": "shared engine only; not a full project installer",
+  "files": {
+    ".opencode/plugins/orchestra/loop.ts": "bd7d91fbd03f8714b30d447f8f3ac5258e3cf0a0cea55aa4db0614b54f0689e1",
+    ".opencode/plugins/orchestra/tasks.ts": "6428160eab1c317300ae804fbd03aaee956f8da079289082d1e2801769b80d38",
+    ".opencode/plugins/orchestra/tools.ts": "f542f8a21d4389d0dbbfe4f40a7a8590e93369d97313917f8487464adedb34b9",
+    ".opencode/scripts/hardening.test.mjs": "64ac6a3f79c3d67e159a9c28eab7907b108a7cd71a4200b2d22c74361c40b478",
+    "scripts/route-task.mjs": "b1a37720db2285c7902a5671f48ab3b73aaaed387aaa1162c2929adf16cd0dbf",
+    "scripts/sync-shared.mjs": "71668829abb32c993a4ddca002b63a11b06283ae92b37bd5d2082ef266eeb187",
+    "tools/opencode-runtime/LICENSE.opencode": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b",
+    "tools/opencode-runtime/local.mjs": "c20d6f41f471bd2cb830ea52047b35d78781eccebf4ad96b212f8a83f03a964d",
+    "tools/opencode-runtime/patch.mjs": "afd8cadf7db5b05d5b586e831d5ad4079c891d030e9f36bda24b816a74436b36",
+    "tools/opencode-runtime/patch.test.mjs": "b6aa902ac6b1598a75f1258f70e3403d98d1e520283c4b2cdd7a83c14c7cd266",
+    "tools/opencode-runtime/README.md": "8786a86d237bc2ff31c73a8e80031aa10bb2fecb41bd3f014cdf6c78b588ab15",
+    "tools/opencode-runtime/runtime-package.json": "c143c303090a18c236b088b2acdfde0743cef2703a8a5a550fd9f208c4b2090c",
+    "tools/opencode-runtime/server.mjs": "9fe0ba211e413612bfe0068fb5263ad8b4f2c40e7a20b55fb59de96ebb280558",
+    "tools/opencode-runtime/server.test.mjs": "1def95760b97218a933eabc71858b2e0fa0bdc6179847bb3c47d0ef5aed256a6",
+    "tools/opencode-runtime/session-context-2.0.18.patch": "99612775c659cdc8c219cc441d6424942d9a1229859b30071e6a04bf1e7ae606",
+    "tools/opencode-runtime/support.mjs": "101e695a0d181fdaf9865cc89ee35a6ad4c03e83ad5b7099389df197bad71234",
+    "tools/opencode-runtime/support.test.mjs": "8bbb85b416bf15a28e1b6454c6eea852863bc76789e738d62d3e46d773d83dbd",
+    "tools/opencode-runtime/fixtures/session-context-original.js": "09b0ed4dae1749183a35f2a034b294702100bc1d9867e78a08fe4d9585a6722b",
+    "scripts/sync-shared.test.mjs": "ac7f4292bc62dda7eb853d1c272c39b41cebb13bdebd4ef223b155a835a2638e"
+  }
+}

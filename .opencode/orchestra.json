@@ -1,37 +1,30 @@
 {
   "$schema": "https://opencode.ai/config.json",
-
   "fallback": {
     "enabled": true,
-
     "cooldownThreshold": 3,
     "cooldownMs": 60000,
     "baseDelayMs": 2000,
     "maxDelayMs": 60000,
     "jitter": 0.25,
-
     "retryNonTransient": false,
-
     "chain": [
       "opencode/ling-3.1-flash-free",
       "opencode/nemotron-3.5-lightning-free",
       "opencode/mimo-v2.6-flash-free"
     ],
-    "autoSwitch": true,
+    "autoSwitch": false,
     "restoreOnRecovery": true,
-
     "learnFromFailures": true,
-
     "perAgent": {}
   },
-
   "budget": {
-    "maxWallClockMs": 14400000,
-    "maxIterations": 50,
-    "maxConcurrentTasks": 8,
-    "maxTasksPerGoal": 200
+    "maxWallClockMs": 3600000,
+    "maxIterations": 12,
+    "maxConcurrentTasks": 2,
+    "maxTasksPerGoal": 24,
+    "mode": "autonomous"
   },
-
   "capture": {
     "//": "Yalnız ÇALIŞTIRMA yapan araçlar. Okuma araçlarının (`read`, `grep`, `glob`, `webfetch`, `browser_preview`, `*_get_*`, `shotcut_*_status`) başarılı çıktısı VERİDİR; içindeki 'error TS2345' çalıştırılmış bir hata değildir. Ölçülen sızıntı: okunan bir .ts dosyası taranınca `shell:TipHatasi:TS2345` imzası açılıp gerçek derleme hatalarının sayacını şişiriyordu.",
     "//2": "`execute` (Code Mode) BİLEREK DIŞARIDA: sarmalayıcının çıktısı içinden çağrılan read/grep çıktılarıyla karışır, aynı gürültü sorunu orada da yaşanır. Sarmalayıcının kendi hataları `status === \"error\"` yolundan gelir; o yol araç sınırına tabi değildir.",
@@ -51,5 +44,11 @@
     ],
     "redact": true,
     "maxSampleChars": 220
+  },
+  "loop": {
+    "max": 6,
+    "maxWallClockMs": 3600000,
+    "idleTimeoutMs": 1200000,
+    "stopPollMs": 1000
   }
 }

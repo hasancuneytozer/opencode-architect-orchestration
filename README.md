@@ -5,3 +5,7 @@
 Bu depo, [opencode project boilerplate](docs/BOILERPLATE.md) ile kuruldu: mimar-merkezli
 orkestrasyon, paralel rol dağıtımı, kanıt zorunluluğu ve hatalardan öğrenen hafıza.
 Kurulum, doğrulama ve güncelleme adımları → [`docs/BOILERPLATE.md`](docs/BOILERPLATE.md).
+
+## Bounded orchestration
+
+See [routing, budgets, safe shared updates and verification](docs/ORCHESTRATION-HARDENING.md) before a pilot.

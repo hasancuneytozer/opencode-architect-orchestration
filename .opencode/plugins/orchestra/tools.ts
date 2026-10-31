@@ -65,6 +65,7 @@ interface ReportInput {
  * güne kadar yazılmış kodun "neye dayandığı" değişmiş olur.
  */
 interface TaskInput {
+  verification?: import("./tasks.ts").VerificationRecord
   id?: string
   title?: string
   role?: string
@@ -504,7 +505,7 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
       description:
         "Görev defterini yaz: iş paketi aç, durum değiştir, kanıt ekle. Reddedilen şeyler koda gömülüdür: " +
         "geçersiz durum geçişi (planned→done atlamak), bitmemiş bağımlılıkla running, döngüsel bağımlılık ve " +
-        "kanıtsız/kabul kriterisiz done. Yazma yüzeyi kesişimi ENGELLEMEZ, raporlar — karar senin.",
+        "kanıtsız/kabul kriterisiz done. Autonomous modda bütçe/çakışma engellenir ve commit bağlı verification gerekir; advisory mod uyarır.",
       options: { namespace: "orchestra", permission: "orchestra_task" },
       input: {
         ...OBJECT,
@@ -517,6 +518,9 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
           acceptance: { ...STRING, description: "Kabul kriteri. 'done' geçişi için zorunludur." },
           status: { ...STRING, description: "Hedef durum: planned | running | verifying | done | blocked | failed." },
           evidence: { ...STRING_ARRAY, description: "Kanıt: test çıktısı, dosya yolu, komut sonucu. 'done' için zorunludur." },
+          verification: { type: "object", additionalProperties: false, required: ["commit","command","exitCode","artifact","reviewer"], properties: {
+            commit: STRING, command: STRING, exitCode: {type:"integer", const:0}, artifact: STRING, reviewer: STRING,
+          } },
         },
         required: [],
         additionalProperties: false,
@@ -556,6 +560,7 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
             id,
             status: asString(input.status),
             evidence: input.evidence === undefined ? undefined : asArray(input.evidence),
+            verification: input.verification,
             title: asString(input.title),
             role: asString(input.role),
             acceptance: asString(input.acceptance),

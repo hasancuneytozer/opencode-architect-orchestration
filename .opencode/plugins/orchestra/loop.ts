@@ -381,7 +381,7 @@ export async function runLoop(
 
       const outcome = await waitForIteration(ctx, memory, sessionID, {
         idleTimeoutMs: config.idleTimeoutMs,
-        maxWallClockMs: config.maxWallClockMs,
+        maxWallClockMs: config.maxWallClockMs > 0 ? Math.max(1, config.maxWallClockMs - (now() - baslangic)) : 0,
         stopPollMs: config.stopPollMs,
         runID,
       })

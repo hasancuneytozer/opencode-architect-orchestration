@@ -1645,10 +1645,12 @@ export class Memory {
    * Sıra `setLoop` ile aynı: önce harici değişikliği oku, SONRA yuvayı yaz.
    * Aksi halde resync'in reload'u henüz uygulanmamış görevleri silerdi.
    */
-  async setTaskVault(sessionID: string, vault: TaskVault): Promise<TaskVault> {
+  async setTaskVault(sessionID: string, vault: TaskVault, expected?: TaskVault): Promise<TaskVault> {
     return this.write(() =>
       this.locked("state", async () => {
         await this.resync(this.stateFile, this.storeStamp, (value) => (this.storeStamp = value))
+        if (expected !== undefined && JSON.stringify(this.getTaskVault(sessionID)) !== JSON.stringify(expected))
+          throw new Error("TASK_VAULT_CONFLICT: reload the ledger and retry; no change was written")
         // Budalama görev başına `tasks.ts` → `pruneTasks` içindedir (şema orada
         // yaşar). Burada yalnız OTURUM yuvası sınırı uygulanır: koşan görevi
         // olan oturum, bitmiş oturumdan SONRA atılır.

@@ -49,7 +49,15 @@ export const TASK_STATUSES: readonly TaskStatus[] = [
   "failed",
 ]
 
+export interface VerificationRecord { commit: string; command: string; exitCode: number; artifact: string; reviewer: string }
+export function validVerification(v: unknown): v is VerificationRecord {
+  if (!v || typeof v !== "object") return false
+  const r = v as VerificationRecord
+  return typeof r.commit === "string" && /^[a-f0-9]{40,64}$/i.test(r.commit) && r.exitCode === 0 &&
+    [r.command,r.artifact,r.reviewer].every(s => typeof s === "string" && s.trim().length > 0 && s.length <= 4096)
+}
 export interface TaskRecord {
+  verification?: VerificationRecord
   /** Kısa, kalıcı kimlik: P1, P2 … */
   id: string
   title: string
@@ -94,6 +102,8 @@ export const TASK_TRANSITIONS: Readonly<Record<TaskStatus, readonly TaskStatus[]
 }
 
 export interface BudgetConfig {
+  /** Advisory preserves legacy behavior; autonomous rejects unsafe admission. */
+  mode?: "advisory" | "autonomous"
   /** Toplam duvar saati. 0 → kapalı. */
   maxWallClockMs: number
   /** Toplam iş adımı (görev `running`'e geçiş sayısı). 0 → kapalı. */
@@ -629,6 +639,7 @@ export async function loadBudgetConfig(root: string | undefined): Promise<Budget
   const sayi = (value: unknown, varsayilan: number): number =>
     typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : varsayilan
   return {
+    mode: block.mode === "autonomous" ? "autonomous" : "advisory",
     maxWallClockMs: sayi(block.maxWallClockMs, DEFAULT_BUDGET.maxWallClockMs),
     maxIterations: sayi(block.maxIterations, DEFAULT_BUDGET.maxIterations),
     maxConcurrentTasks: sayi(block.maxConcurrentTasks, DEFAULT_BUDGET.maxConcurrentTasks),
@@ -667,6 +678,7 @@ export interface LedgerNo {
 export type LedgerResult = LedgerOk | LedgerNo
 
 export interface TaskUpdateInput {
+  verification?: VerificationRecord
   id: string
   status?: string
   evidence?: string[]
@@ -698,6 +710,7 @@ export class TaskLedger {
   private config: BudgetConfig
   private configStamp: number
   private board: TaskBoard
+  private expectedVault: TaskBoard
   private readonly now: () => number
 
   private constructor(
@@ -715,6 +728,7 @@ export class TaskLedger {
     this.config = config
     this.configStamp = configStamp
     this.board = board
+    this.expectedVault = structuredClone(board)
     this.now = now
   }
 
@@ -791,6 +805,7 @@ export class TaskLedger {
     await this.memory.syncStore()
     const vault = this.memory.getTaskVault(this.sessionID)
     this.board = { tasks: vault.tasks.map((task) => ({ ...task })), budget: { ...vault.budget } }
+    this.expectedVault = structuredClone(this.board)
   }
 
   /** Yuvayı diske yazar; önce `MAX_STORED_TASKS` ile budar. */
@@ -798,7 +813,8 @@ export class TaskLedger {
     const budanmis = pruneTasks(this.board.tasks, MAX_STORED_TASKS)
     const atilan = this.board.tasks.length - budanmis.length
     this.board = { tasks: budanmis, budget: { ...this.board.budget } }
-    await this.memory.setTaskVault(this.sessionID, this.board)
+    await this.memory.setTaskVault(this.sessionID, this.board, this.expectedVault)
+    this.expectedVault = structuredClone(this.board)
     return atilan
   }
 
@@ -893,6 +909,7 @@ export class TaskLedger {
     overflow.push(...olcum.overflow)
     notes.push(...olcum.notes)
 
+    if (this.config.mode === "autonomous" && overflow.length) return { ok: false, error: "BUDGET_EXCEEDED: task not admitted", notes, overflow }
     this.board = { tasks: [...this.board.tasks, task], budget: bulten.state }
 
     // Çakışma TESPİTİ: yeni görev henüz `planned`, ama AKTIF (`running` VEYA
@@ -944,6 +961,16 @@ export class TaskLedger {
       this.board = { tasks: this.board.tasks.map((t) => (t.id === id ? task : t)), budget }
     }
 
+    if (input.verification !== undefined) {
+      if (!validVerification(input.verification)) return { ok: false, error: "INVALID_VERIFICATION", notes, overflow }
+      task.verification = structuredClone(input.verification)
+    }
+    const activeConflicts = () => this.aktif().filter(t => t.id !== id).flatMap(t => conflictsBetween(task, t))
+    if (this.config.mode === "autonomous" && input.writeSurface !== undefined && AKTIF_DURUMLAR.has(task.status)) {
+      const proposed = { ...task, writeSurface: input.writeSurface }
+      if (this.aktif().some(t => t.id !== id && conflictsBetween(proposed,t).length))
+        return { ok: false, error: "WRITE_CONFLICT: surface expansion rejected", notes, overflow }
+    }
     if (input.evidence !== undefined) {
       const yeni = input.evidence.map((e) => String(e).trim()).filter(Boolean)
       task.evidence = [...task.evidence, ...yeni.filter((e) => !task.evidence.includes(e))]
@@ -1025,6 +1052,8 @@ export class TaskLedger {
     bulten.start(this.now())
 
     if (hedef === "done") {
+      if (this.config.mode === "autonomous" && !validVerification(task.verification))
+        return { ok: false, error: "VERIFICATION_REQUIRED: commit, command, exitCode=0, artifact and reviewer", notes, overflow }
       // KANIT ZORUNLULUĞU: "yaptım" ile "kanıtladım" ayrımı kodla zorlanır.
       if (task.evidence.length === 0) {
         return {
@@ -1070,10 +1099,14 @@ export class TaskLedger {
       // geçişe giren görevin kendisi eklenir. ÖLÇÜLEN KUSUR: yalnız "diğer
       // koşanlar" ölçülüyordu, yani tavana dayanmış bir defter 3. koşuda bile
       // aşım üretmiyordu.
-      const gecisSonrasi = this.running().filter((t) => t.id !== id).length + 1
+      const gecisSonrasi = (this.config.mode === "autonomous" ? this.aktif() : this.running()).filter((t) => t.id !== id).length + 1
       const olcum = this.olc(gecisSonrasi, { yeniGorev: true, yeniIterasyon: true }, bulten)
       overflow.push(...olcum.overflow)
       notes.push(...olcum.notes)
+      if (this.config.mode === "autonomous" && (overflow.length || activeConflicts().length))
+        return { ok: false, error: overflow.length ? "BUDGET_EXCEEDED: task remains pending" : "WRITE_CONFLICT: task remains pending", notes, overflow }
+      // A new attempt invalidates prior verification, even if included in this call.
+      task.verification = undefined
       task.startedAt = task.startedAt ?? new Date(this.now()).toISOString()
     }
 
