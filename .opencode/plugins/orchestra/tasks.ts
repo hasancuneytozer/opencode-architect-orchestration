@@ -909,7 +909,10 @@ export class TaskLedger {
     overflow.push(...olcum.overflow)
     notes.push(...olcum.notes)
 
-    if (this.config.mode === "autonomous" && overflow.length) return { ok: false, error: "BUDGET_EXCEEDED: task not admitted", notes, overflow }
+    if (this.config.mode === "autonomous" && overflow.length) {
+      notes.push({ tur: "bilgi", metin: `running IDs: ${this.running().map(t => t.id.replace(/[^\w-]/g, "?").slice(0, 32)).slice(0, 32).join(", ") || "-"}` })
+      return { ok: false, error: "BUDGET_EXCEEDED: task not admitted", notes, overflow }
+    }
     this.board = { tasks: [...this.board.tasks, task], budget: bulten.state }
 
     // Çakışma TESPİTİ: yeni görev henüz `planned`, ama AKTIF (`running` VEYA
@@ -965,11 +968,15 @@ export class TaskLedger {
       if (!validVerification(input.verification)) return { ok: false, error: "INVALID_VERIFICATION", notes, overflow }
       task.verification = structuredClone(input.verification)
     }
-    const activeConflicts = () => this.aktif().filter(t => t.id !== id).flatMap(t => conflictsBetween(task, t))
+    const activeConflicts = (candidate: TaskRecord) => this.aktif().filter(t => t.id !== id)
+      .flatMap(t => conflictsBetween(candidate, t).map(surface => ({ id: t.id, surface })))
+    const conflictError = (conflicts: { id: string; surface: string }[]) =>
+      `WRITE_CONFLICT: ${conflicts.slice(0, 8).map(c => `${c.id.replace(/[^\w-]/g, "?").slice(0, 32)} (${c.surface.replace(/[^\w./*:-]/g, "?").slice(0, 160)})`).join(", ")}${conflicts.length > 8 ? " …" : ""}`
     if (this.config.mode === "autonomous" && input.writeSurface !== undefined && AKTIF_DURUMLAR.has(task.status)) {
       const proposed = { ...task, writeSurface: input.writeSurface }
-      if (this.aktif().some(t => t.id !== id && conflictsBetween(proposed,t).length))
-        return { ok: false, error: "WRITE_CONFLICT: surface expansion rejected", notes, overflow }
+      const conflicts = activeConflicts(proposed)
+      if (conflicts.length)
+        return { ok: false, error: conflictError(conflicts), notes, overflow }
     }
     if (input.evidence !== undefined) {
       const yeni = input.evidence.map((e) => String(e).trim()).filter(Boolean)
@@ -1099,12 +1106,15 @@ export class TaskLedger {
       // geçişe giren görevin kendisi eklenir. ÖLÇÜLEN KUSUR: yalnız "diğer
       // koşanlar" ölçülüyordu, yani tavana dayanmış bir defter 3. koşuda bile
       // aşım üretmiyordu.
-      const gecisSonrasi = (this.config.mode === "autonomous" ? this.aktif() : this.running()).filter((t) => t.id !== id).length + 1
+      const gecisSonrasi = this.running().filter((t) => t.id !== id).length + 1
       const olcum = this.olc(gecisSonrasi, { yeniGorev: true, yeniIterasyon: true }, bulten)
       overflow.push(...olcum.overflow)
       notes.push(...olcum.notes)
-      if (this.config.mode === "autonomous" && (overflow.length || activeConflicts().length))
-        return { ok: false, error: overflow.length ? "BUDGET_EXCEEDED: task remains pending" : "WRITE_CONFLICT: task remains pending", notes, overflow }
+      const conflicts = activeConflicts(task)
+      if (this.config.mode === "autonomous" && (overflow.length || conflicts.length)) {
+        if (overflow.length) notes.push({ tur: "bilgi", metin: `running IDs: ${this.running().map(t => t.id.replace(/[^\w-]/g, "?").slice(0, 32)).slice(0, 32).join(", ") || "-"}` })
+        return { ok: false, error: overflow.length ? "BUDGET_EXCEEDED: task remains pending" : conflictError(conflicts), notes, overflow }
+      }
       // A new attempt invalidates prior verification, even if included in this call.
       task.verification = undefined
       task.startedAt = task.startedAt ?? new Date(this.now()).toISOString()
@@ -1139,7 +1149,7 @@ export class TaskLedger {
     const cizgiler: string[] = [
       `ORCHESTRA GÖREV DEFTERİ — oturum ${this.sessionID}`,
       `- Toplam görev: ${this.board.tasks.length} (koşan ${say("running")}, doğrulanıyor ${say("verifying")}, bitti ${say("done")}, engelli ${say("blocked")}, başarısız ${say("failed")}, planlı ${say("planned")})`,
-      `- Bütçe: duvar saati ${dakika(gecen)}/${dakika(this.config.maxWallClockMs)} · iş adımı ${this.board.budget.iterations}/${this.config.maxIterations} · eşzamanlı ${say("running")}/${this.config.maxConcurrentTasks} · görev ${this.board.budget.tasks}/${this.config.maxTasksPerGoal}`,
+      `- Bütçe: duvar saati ${dakika(gecen)}/${dakika(this.config.maxWallClockMs)} · iş adımı ${this.board.budget.iterations}/${this.config.maxIterations} · eşzamanlı ${say("running")}/${this.config.maxConcurrentTasks} · görev ${this.board.budget.tasks}/${this.config.maxTasksPerGoal} · running slots ${say("running")}/${this.config.maxConcurrentTasks} · verifying locks ${say("verifying")}`,
     ]
     const asim = bulten.probe(this.config, say("running"), this.now())
     if (asim.length > 0) cizgiler.push(`- AŞIM: ${asim.map((a) => `${a.reason} (${a.actual}/${a.limit})`).join("; ")}`)

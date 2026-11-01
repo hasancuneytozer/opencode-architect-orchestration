@@ -10,7 +10,9 @@ Use one maker for a small change. Normal independent tasks may use at most two w
 
 ## Enforced boundaries
 
-The project selects `budget.mode: autonomous`: admission rejects task-count, iteration, concurrent-task and elapsed-time overflow. Overlapping declared write surfaces cannot enter running; verifying continues to reserve the surface. Advisory mode retains warning-only behavior for legacy users. Limits are in `.opencode/orchestra.json`: 24 tasks, 12 starts, 2 concurrent tasks, 1 hour; loop max 6 iterations with the remaining overall deadline passed into each wait.
+The project selects `budget.mode: autonomous`: admission rejects task-count, iteration, concurrent-task and elapsed-time overflow. Only running tasks consume concurrent slots; verifying still reserves its declared write surface. Advisory mode retains warning-only behavior for legacy users. Limits in `.opencode/orchestra.json` are finite: 200 tasks, 100 starts, 2 running tasks, 4 hours; loop max 50 iterations and 4 hours, with the remaining deadline passed into each wait. Longer work requires user approval to increase the finite limits; do not use unlimited or zero limits.
+
+On worker return, transition its record in the same turn to verifying or blocked/failed; never automatically mark done or expire a lock to free a slot. A real verifier agent needs its own running task and counts toward the two-worker cap; it tests the acceptance criteria. An explicit autonomous-work request uses `/loop` with its existing report and stop safeguards.
 
 These limits apply to a session's task ledger. They are not a global scheduler, filesystem isolation, provider token quota, or interception of every direct subagent call. Use separate worktrees for simultaneous sessions. Accurate write-surface declarations are required.
 

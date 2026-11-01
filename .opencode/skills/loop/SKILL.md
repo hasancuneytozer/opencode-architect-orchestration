@@ -12,6 +12,11 @@ Otonomiyi sınırsız yapmak tehlikelidir. Otonomiyi **rapor tabanlı ve sınır
 `/loop <hedef> [--max=N]` komutu, her iterasyonda oturuma bir tur promptu gönderir, tur bitince
 `orchestra_report` çıktısını okur ve ona göre karar verir. Sana düşen tek kural şu:
 
+Kullanıcı açıkça otonom çalışma istediğinde de `/loop` kullan. Worker döndüğünde kaydı aynı
+tur `verifying` veya `blocked`/`failed` yap; otomatik `done` veya TTL ile kilit açma.
+`verifying` yüzeyi kilitler ama running slotu tüketmez. Gerçek verifier ajanı için ayrı
+running iş paketi tut ve toplam iki çalışan sınırını aşma; verifier kabul kriterini test eder.
+
 **Her iterasyonun sonunda `orchestra_report` çağrı.**
 
 Rap vermezsen döngü seni bekler. İki tur üst üste rap vermezsen kendini durdurur. Bu bir hata

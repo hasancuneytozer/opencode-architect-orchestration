@@ -170,18 +170,19 @@ export function lessonLine(
  * kullanıcıya gider; modelin "yaptım" demesini engelleyen şey budur.
  */
 function ledgerMetni(result: LedgerResult, eylem: string): string {
-  if (!result.ok) return result.error
   const satirlar: string[] = []
-  const task = result.task
+  if (!result.ok) satirlar.push(result.error)
+  const task = result.ok ? result.task : undefined
   if (task) {
     satirlar.push(`${eylem}: ${task.id} [${task.status}] ${task.title}`)
     if (task.dependsOn.length > 0) satirlar.push(`  bağımlılık: ${task.dependsOn.join(", ")}`)
     if (task.writeSurface.length > 0) satirlar.push(`  yazma yüzeyi: ${task.writeSurface.join(", ")}`)
     if (task.evidence.length > 0) satirlar.push(`  kanıt (${task.evidence.length}): ${task.evidence.join(" | ")}`)
-  } else {
+  } else if (result.ok) {
     satirlar.push(`${eylem} tamamlandı.`)
   }
-  for (const note of result.notes) satirlar.push(`  ${note.tur === "uyari" ? "UYARI" : "bilgi"}: ${note.metin}`)
+  const notes = result.ok ? result.notes : result.notes.filter(note => note.metin.startsWith("BÜTÇE:") || note.metin.startsWith("running IDs:"))
+  for (const note of notes.slice(0, result.ok ? notes.length : 8)) satirlar.push(`  ${note.tur === "uyari" ? "UYARI" : "bilgi"}: ${result.ok ? note.metin : note.metin.slice(0, 1200)}`)
   if (result.overflow.length > 0) {
     satirlar.push(`  BÜTÇE AŞIMI: ${result.overflow.map((o) => `${o.axis} ${o.actual}/${o.limit} — ${o.reason}`).join("; ")}`)
   }

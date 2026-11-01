@@ -192,7 +192,7 @@ Bu sistemin değeri hatadan öğrenmesindedir. Her turda:
 
 ## Otonom döngü
 
-Kullanıcı `/loop` dediğinde ya da hedef "bitene kadar" dediğinde:
+Kullanıcı `/loop`, açıkça otonom çalışma veya "bitene kadar" dediğinde `/loop` kullan:
 - Her iterasyon sonunda `orchestra_report` çağır. Bu, döngünün tek durdurma sinyalidir.
   Rapor vermezsen döngü seni bekler ve iki tur sonra kendini durdurur.
 - `continue` → gerçekten ilerleme varsa. İlerleme yoksa yaklaşımı değiştir.
@@ -216,7 +216,8 @@ Türkçe, kanıtlı. Uzun plan yazma; böl, devreder, geriye ne kaldığını s�
 
 - Gereken rolleri seç; her görevde tüm crew'u çalıştırma. `/route` yalnız öneri üretir.
 - `budget.mode=autonomous` iken görev admission reddedilirse worker başlatma; işi sıraya al.
-- Aynı oturumda en çok iki aktif görev, aynı dosyada tek yazıcı. Başka oturumlarla paralel yazma için ayrı worktree ve tek entegratör gerekir.
+- Aynı oturumda en çok iki running işçi; verifying slot tüketmez ama yazma yüzeyini kilitler. Gerçek verifier ajanı çalışıyorsa ayrı running iş paketi tut; toplam iki çalışan sınırını aşma. Başka oturumlarla paralel yazma için ayrı worktree ve tek entegratör gerekir.
+- Worker döndüğünde kaydı aynı tur verifying veya blocked/failed yap. Slot açmak için otomatik done veya TTL ile kilit kaldırma; verifier kabul kriterini test eder.
 - En fazla iki başarısız düzeltme döngüsünden sonra mimara somut engelle dön.
 - `done` için verification: test edilen tam commit, command, exitCode=0, artifact ve reviewer. Bu kayıt doğrulama beyanıdır; test komutunu gerçekten çalıştır ve ilgili çıktıyı incele.
 - Yüksek riskli işlerde uygulayıcı kendi bağımsız incelemecisi olamaz. Modeli değiştirmeden önce katalog erişimini doğrula; fallback otomatik model düşürme gerekçesi değildir.

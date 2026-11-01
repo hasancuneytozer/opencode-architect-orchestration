@@ -5,6 +5,7 @@ import {join} from "node:path"
 import {tmpdir} from "node:os"
 import {Memory} from "../plugins/orchestra/memory.ts"
 import {TaskLedger} from "../plugins/orchestra/tasks.ts"
+import {registerTools} from "../plugins/orchestra/tools.ts"
 import {runLoop} from "../plugins/orchestra/loop.ts"
 import {routeTask,resolvedRoute} from "../../scripts/route-task.mjs"
 async function setup(t,budget={}) {
@@ -23,6 +24,29 @@ test("autonomous conflict rejects atomically including attempted evidence update
  assert.deepEqual(ledger.defter(),before)
  assert.equal((await ledger.update({id:a.task.id,status:"verifying"})).ok,true)
  assert.equal((await ledger.update({id:b.task.id,status:"running"})).ok,false)
+})
+test("running slots, verifying locks and rejection diagnostics agree through tools",async t=>{
+ const {root,memory}=await setup(t,{maxIterations:10})
+ let editor
+ await registerTools({location:{directory:root},tool:{transform:async fn=>{editor={namespace:()=>{},add:x=>{editor[x.name]=x}};fn(editor)}}},memory)
+ const ctx={agent:"architect",sessionID:"s"}, task=editor.task
+ for(const surface of ["src/a.ts","src/b.ts","src/c.ts","src/a.ts"])
+  await task.execute({title:"work",writeSurface:[surface],acceptance:"test"},ctx)
+ await task.execute({id:"P1",status:"running"},ctx)
+ await task.execute({id:"P1",status:"verifying"},ctx)
+ assert.match((await task.execute({id:"P4",status:"running"},ctx)).content,/WRITE_CONFLICT: P1 \(src\/a\.ts\)/)
+ assert.match((await task.execute({id:"P2",status:"running"},ctx)).content,/\[running\]/)
+ assert.match((await task.execute({id:"P3",status:"running"},ctx)).content,/\[running\]/)
+ const fifth=await task.execute({title:"fifth",writeSurface:["src/d.ts"]},ctx)
+ assert.match(fifth.content,/P5/)
+ const denied=(await task.execute({id:"P5",status:"running"},ctx)).content
+ assert.match(denied,/BUDGET_EXCEEDED/);assert.match(denied,/concurrency 3\/2/)
+ assert.match(denied,/running IDs: P2, P3/);assert.match(denied,/eşzamanlı görev tavanı/)
+ const status=(await editor.status.execute({section:"budget"},ctx)).content
+ assert.match(status,/running slots 2\/2/);assert.match(status,/verifying locks 1/)
+ const reopened=await TaskLedger.open(memory,root,"s")
+ assert.equal(reopened.defter().budget.iterations,3)
+ assert.equal((await reopened.update({id:"P1",status:"done",evidence:["x"]})).ok,false)
 })
 test("budget admission and verification bind to an attempt",async t=>{
  const {ledger}=await setup(t,{maxConcurrentTasks:1,maxTasksPerGoal:2})

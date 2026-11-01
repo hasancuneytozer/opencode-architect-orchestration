@@ -3,9 +3,9 @@
   "scope": "shared engine only; not a full project installer",
   "files": {
     ".opencode/plugins/orchestra/loop.ts": "bd7d91fbd03f8714b30d447f8f3ac5258e3cf0a0cea55aa4db0614b54f0689e1",
-    ".opencode/plugins/orchestra/tasks.ts": "6428160eab1c317300ae804fbd03aaee956f8da079289082d1e2801769b80d38",
-    ".opencode/plugins/orchestra/tools.ts": "f542f8a21d4389d0dbbfe4f40a7a8590e93369d97313917f8487464adedb34b9",
-    ".opencode/scripts/hardening.test.mjs": "64ac6a3f79c3d67e159a9c28eab7907b108a7cd71a4200b2d22c74361c40b478",
+    ".opencode/plugins/orchestra/tasks.ts": "4acb59355bce083deaaa7151324bb07734fb33ec4500a96bc8d403c71b00cfd1",
+    ".opencode/plugins/orchestra/tools.ts": "0443d40b78b96e80a699aa461ffbd1afa74275cd1753485cb6498e1d2666e00f",
+    ".opencode/scripts/hardening.test.mjs": "a237142d083da3405791ffe83487f24b7196ddede69b2a7979cd0786017d177f",
     "scripts/route-task.mjs": "b1a37720db2285c7902a5671f48ab3b73aaaed387aaa1162c2929adf16cd0dbf",
     "scripts/sync-shared.mjs": "71668829abb32c993a4ddca002b63a11b06283ae92b37bd5d2082ef266eeb187",
     "tools/opencode-runtime/LICENSE.opencode": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b",
