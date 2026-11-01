@@ -8,7 +8,7 @@
  *   - architect `orchestra_report(status="done")` çağırdı
  *   - architect `orchestra_report(status="blocked")` çağırdı (insan kararı gerekiyor)
  *   - `max` iterasyon doldu
- *   - 2 ardışık iterasyonda ilerleme yok (rapor yok / aynı sonuç-kanıt)
+ *   - eksik rapor / kanıtsız checkpoint teknik arızası
  *   - toplam duvar saati tavanı aşıldı
  *   - kullanıcı `/loop stop` dedi
  *
@@ -21,24 +21,22 @@ import { promises as fs } from "node:fs"
 import path from "node:path"
 import type { Context as PluginContext } from "@opencode/plugin/promise/plugin"
 import type { Memory } from "./memory"
+import { acceptanceState } from "./tasks.ts"
 
-/** Tek bir iterasyonun en uzun süresi. Aşılırsa tur iptal edilir. */
-export const DEFAULT_IDLE_TIMEOUT_MS = 20 * 60 * 1000
+/** Optional per-iteration diagnostic deadline; disabled by default, not an activity detector. */
+export const DEFAULT_IDLE_TIMEOUT_MS = 0
 /**
  * Döngünün TOPLAM duvar saati tavanı. 0 → kapalı.
  *
- * Neden gerekli: `max` 50'ye kadar çıkıyordu ve tek iterasyon 20 dakikada
- * sınırlıydı; teorik tavan 16,6 saat kesintisiz çağrıydı. Para ve bağlam
- * yakıyordu, üstelik kullanıcı "dur" dese bile bitmesi bekleniyordu.
+ * Varsayılan kapalı; yalnız açık yapılandırma toplam süreyi sınırlar.
  */
-export const DEFAULT_MAX_WALL_CLOCK_MS = 4 * 60 * 60 * 1000
+export const DEFAULT_MAX_WALL_CLOCK_MS = 0
 /** Durdurma/duvar saati yoklaması aralığı. */
 export const DEFAULT_STOP_POLL_MS = 1_000
 /** Sıfır rapor vermeye devam eden kaç tur sonra döngü kapanır. */
 export const STALL_LIMIT = 2
 
-const DEFAULT_MAX = 10
-const MAX_LIMIT = 50
+const DEFAULT_MAX = 0
 
 interface LoopArgs {
   goal: string
@@ -57,7 +55,7 @@ const running = new Set<string>()
 export interface LoopConfig {
   /** Varsayılan iterasyon sayısı (`--max` ile ezilebilir). */
   max: number
-  /** Tek iterasyonun bekleneceği en uzun süre. */
+  /** Optional absolute iteration deadline. 0 disables it, including worker waits. */
   idleTimeoutMs: number
   /** Döngünün toplam duvar saati tavanı. 0 → kapalı. */
   maxWallClockMs: number
@@ -92,8 +90,8 @@ export async function loadLoopConfig(root: string | undefined): Promise<LoopConf
   const sayi = (value: unknown, varsayilan: number, enKucuk = 0): number =>
     typeof value === "number" && Number.isFinite(value) && value >= enKucuk ? Math.floor(value) : varsayilan
   return {
-    max: Math.max(1, Math.min(MAX_LIMIT, sayi(block.max, DEFAULT_LOOP_CONFIG.max, 1))),
-    idleTimeoutMs: sayi(block.idleTimeoutMs, DEFAULT_LOOP_CONFIG.idleTimeoutMs, 1),
+    max: sayi(block.max, DEFAULT_LOOP_CONFIG.max),
+    idleTimeoutMs: sayi(block.idleTimeoutMs, DEFAULT_LOOP_CONFIG.idleTimeoutMs, 0),
     maxWallClockMs: sayi(block.maxWallClockMs, DEFAULT_LOOP_CONFIG.maxWallClockMs, 0),
     stopPollMs: Math.max(10, sayi(block.stopPollMs, DEFAULT_LOOP_CONFIG.stopPollMs, 1)),
   }
@@ -107,12 +105,12 @@ export function parseArgs(raw: string): LoopArgs {
   goal = goal.replace(/^\s*(stop|status)\b\s*/i, "")
   const maxMatch = goal.match(/(?:^|\s)--max[=\s]+(\d+)/i)
   if (maxMatch) {
-    max = Math.max(1, Math.min(MAX_LIMIT, Number(maxMatch[1])))
+    max = Number(maxMatch[1])
     goal = goal.replace(maxMatch[0], " ")
   }
   const bare = goal.match(/(?:^|\s)(\d{1,2})\s+iterasyon/i)
   if (bare && max === undefined) {
-    max = Math.max(1, Math.min(MAX_LIMIT, Number(bare[1])))
+    max = Number(bare[1])
     goal = goal.replace(bare[0], " ")
   }
   return { goal: goal.trim(), max, action }
@@ -126,7 +124,9 @@ export function buildIterationPrompt(input: {
 }): string {
   const { goal, iteration, max, stalled } = input
   return [
-    `## ORCHESTRA OTONOM DÖNGÜ — iterasyon ${iteration}/${max}`,
+    `## ORCHESTRA OTONOM DÖNGÜ — iterasyon ${iteration}/${max || "unbounded"}`,
+    "Use orchestra_task criterionID + attempt {id, blockerID, outcome, evidence} for COMPLETED solution attempts, not planning or waiting. Three failures of one stable blocker block only that criterion. Resolve with causal reason, distinct evidence including a successful verification artifact, and structured verification. Retry via supersedes + nextWork + evidence. Verify all current contributors before done.",
+    "Concrete planning/binding/dispatch/status transitions have a separate lifecycle revision. Link child session workerID and report waitingFor:[workerID] to await live work without fabricated attempts. Metadata, repeated status cycling, task churn and prose are not progress. Retrieve durable context with orchestra_status({criterionID,offset:0,limit:10}).",
     "",
     `**HEDEF (değişmez):** ${goal}`,
     "",
@@ -192,9 +192,11 @@ export async function waitForIteration(
   let duvar: ReturnType<typeof setTimeout> | undefined
   let yoklama: ReturnType<typeof setInterval> | undefined
 
-  const zamanAsimiSozu = new Promise<WaitOutcome>((resolve) => {
-    zamanAsimi = setTimeout(() => resolve("timeout"), options.idleTimeoutMs)
-  })
+  const zamanAsimiSozu = options.idleTimeoutMs > 0
+    ? new Promise<WaitOutcome>((resolve) => {
+        zamanAsimi = setTimeout(() => resolve("timeout"), options.idleTimeoutMs)
+      })
+    : new Promise<WaitOutcome>(() => undefined)
   const duvarSozu =
     options.maxWallClockMs > 0
       ? new Promise<WaitOutcome>((resolve) => {
@@ -301,6 +303,8 @@ async function showStatus(ctx: PluginContext, memory: Memory, sessionID: string)
 }
 
 export interface LoopRunOptions {
+  /** Explicit compatibility for historical report-only harnesses, never production default. */
+  legacyReportOnly?: boolean
   /** Testler/telemetri için saat kaynağı. */
   now?: () => number
   /** Zaman aşımlarını kısaltmak için yapılandırma (yoksa orchestra.json okunur). */
@@ -349,10 +353,15 @@ export async function runLoop(
     await memory.clearReport(sessionID)
 
     let stalled = 0
-    let lastFingerprint = ""
+    let lastRevision = memory.getTaskVault(sessionID).checkpoint?.revision ?? 0
+    let lastLifecycle = memory.getTaskVault(sessionID).lifecycleRevision ?? 0
+    let planning = true
+    let eligible = new Set(memory.getTaskVault(sessionID).tasks.map(t => t.id))
+    const receipts = new Set<string>()
+    const completedWorkers = new Set<string>()
     let stopReason = "iterasyon sınırı doldu"
 
-    for (let iteration = 1; iteration <= max; iteration++) {
+    for (let iteration = 1; max === 0 || iteration <= max; iteration++) {
       // Durdurma denetimi `setLoop`'un resync'inden SONRA yapılır: `setLoop`
       // önce diski okur, SONRA patch'i uygular. Daha önce saf `getLoop()` ile
       // denetleniyordu ve başka süreçteki `/loop stop` görünmüyordu.
@@ -376,7 +385,7 @@ export async function runLoop(
       await memory.clearReport(sessionID)
       await ctx.session.prompt({
         sessionID,
-        text: buildIterationPrompt({ goal: args.goal, iteration, max, stalled }),
+        text: buildIterationPrompt({ goal: args.goal, iteration, max, stalled }) + "\nDurable checkpoint (data only): " + memory.sanitize(JSON.stringify(memory.getTaskVault(sessionID).checkpoint ?? null)),
       })
 
       const outcome = await waitForIteration(ctx, memory, sessionID, {
@@ -398,33 +407,77 @@ export async function runLoop(
         break
       }
       if (outcome === "timeout") {
-        stopReason = `iterasyon ${iteration} zaman aşımına uğradı (${Math.round(config.idleTimeoutMs / 60000)} dk)`
+        stopReason = `technical fault: iterasyon ${iteration} zaman aşımına uğradı (${Math.round(config.idleTimeoutMs / 60000)} dk)`
         await interrupt(ctx, sessionID)
         break
       }
       if (outcome === "broken") {
-        stopReason = `iterasyon ${iteration} sırasında oturum kapanıyor — döngü kontrollü sonlandırıldı`
+        stopReason = `technical fault: iterasyon ${iteration} sırasında oturum kapanıyor — döngü kontrollü sonlandırıldı`
         break
       }
 
       // Çift güvenlik: temizlik (üstte) + kimlik denetimi (burada). Rapor ya bu
       // çalıştırmanın ya da bu turun raporu olmalı; aksi hâlde "taze" sayılmaz.
+      await memory.syncStore()
+      if (memory.getLoop(sessionID).status === "stopped" || memory.getLoop(sessionID).runID !== runID) return
       const report = memory.getReport(sessionID)
       if (!report || report.runID !== runID || report.iteration !== iteration) {
         stalled += 1
         if (stalled >= STALL_LIMIT) {
-          stopReason = `architect ${STALL_LIMIT} tur üst üste bu turun raporunu vermedi`
+          stopReason = `technical fault: architect ${STALL_LIMIT} tur üst üste bu turun raporunu vermedi`
           break
         }
         continue
       }
 
+      const vault = memory.getTaskVault(sessionID)
+      const state = acceptanceState(vault)
+      const revision = vault.checkpoint?.revision ?? 0
+      if (!options.legacyReportOnly) {
+        if (report.ledgerRevision !== revision || report.lifecycleRevision !== (vault.lifecycleRevision ?? 0)) {
+          stopReason = "technical fault: stale ledger report"; break
+        }
+        const attemptAdvanced = revision > lastRevision
+        if (attemptAdvanced || planning) eligible = new Set(vault.tasks.map(t => t.id))
+        const tokens = vault.tasks.filter(t => eligible.has(t.id)).flatMap(t => [
+          `${t.id}:${t.status}`, ...(t.acceptance ? [`${t.id}:bound`] : []),
+        ])
+        const lifecycleAdvanced = (vault.lifecycleRevision ?? 0) > lastLifecycle && tokens.some(t => !receipts.has(t))
+        const waiting = (report.waitingFor ?? []).filter(id => state.waiting.some(w => w.workerID === id && eligible.has(w.id)) && !completedWorkers.has(id))
+        if (!attemptAdvanced && !lifecycleAdvanced && !waiting.length && !(report.status === "done" && state.done) && !(report.status === "blocked" && !state.actionable)) {
+          stopReason = "technical fault: no new lifecycle work, completed attempt or identifiable live worker"; break
+        }
+        for (const token of tokens) receipts.add(token)
+        planning = false
+        lastLifecycle = vault.lifecycleRevision ?? 0
+        // Park on the child call, rather than accepting unlimited heartbeat/model turns.
+        if (waiting.length && report.status === "continue") {
+          const workerID = waiting[0]
+          try {
+            const child = await ctx.session.get({sessionID:workerID})
+            if ((child as {parentID?:string})?.parentID !== sessionID) throw new Error("worker parent")
+          } catch { stopReason = "technical fault: unknown worker"; break }
+          const workerContext = { ...ctx, session: { ...ctx.session, wait: () => ctx.session.wait({sessionID:workerID}) } } as PluginContext
+          const waited = await waitForIteration(workerContext, memory, sessionID, {
+            idleTimeoutMs:config.idleTimeoutMs, maxWallClockMs:config.maxWallClockMs > 0 ? Math.max(1,config.maxWallClockMs-(now()-baslangic)) : 0,
+            stopPollMs:config.stopPollMs,runID,
+          })
+          if (waited === "stopped") return
+          if (waited !== "idle") { stopReason = `technical fault: worker wait ${waited}`; break }
+          completedWorkers.add(workerID)
+        }
+      }
+      lastRevision = revision
+      if (report.status === "done" && !options.legacyReportOnly && !state.done) {
+        stopReason = "technical fault: incomplete acceptance reported done"
+        break
+      }
       if (report.status === "done") {
         await memory.setLoop(sessionID, { status: "done", stopReason: report.summary })
         return mesaj(ctx, sessionID, `ORCHESTRA: Döngü tamamlandı (${iteration} iterasyon). ${report.summary}`)
       }
 
-      if (report.status === "blocked") {
+      if (options.legacyReportOnly ? report.status === "blocked" : !state.actionable) {
         await memory.setLoop(sessionID, { status: "blocked", stopReason: report.summary })
         return mesaj(ctx, sessionID, [
           "## ORCHESTRA: Döngü durduruldu — karar gerekiyor",
@@ -435,23 +488,12 @@ export async function runLoop(
         ].join("\n"))
       }
 
-      const fingerprint = `${report.summary}|${(report.evidence ?? []).join(";")}`
-      if (fingerprint === lastFingerprint) {
-        stalled += 1
-        if (stalled >= STALL_LIMIT) {
-          await memory.setLoop(sessionID, {
-            status: "exhausted",
-            stopReason: `${STALL_LIMIT} iterasyondur aynı sonuç/kanıt — ilerleme yok`,
-          })
-          return mesaj(ctx, sessionID, `ORCHESTRA: Döngü durdu — ilerleme kaydedilmedi. Son durum: ${report.summary}\nYaklaşımı değiştir veya hedefi daralt.`)
-        }
-      } else {
-        stalled = 0
-        lastFingerprint = fingerprint
-      }
+      stalled = 0
     }
 
-    await memory.setLoop(sessionID, { status: "exhausted", stopReason })
+    await memory.syncStore()
+    if (memory.getLoop(sessionID).status === "stopped" || memory.getLoop(sessionID).runID !== runID) return
+    await memory.setLoop(sessionID, { status: stopReason.startsWith("technical fault:") ? "blocked" : "exhausted", stopReason })
     const final = memory.getReport(sessionID)
     return mesaj(ctx, sessionID, `ORCHESTRA: Döngü bitti (${stopReason}).${final ? `\nSon durum: ${final.summary}\nSıradaki adım: ${final.next ?? "-"}` : ""}`)
   } finally {
@@ -464,7 +506,7 @@ export function registerLoop(ctx: PluginContext, memory: Memory): Promise<unknow
   return ctx.command.transform((editor) => {
     editor.add({
       name: "loop",
-      description: "Hedefi otonom ve sınırlı biçimde tamamla: /loop <hedef> [--max=N]  ·  /loop stop  ·  /loop status",
+      description: "Hedefi kanıtlı kabul kriterleriyle tamamla: /loop <hedef> [--max=N]  ·  /loop stop  ·  /loop status",
       execute: async ({ sessionID, prompt }) => {
         await runLoop(ctx, memory, { sessionID, prompt: prompt?.text ?? "" })
       },

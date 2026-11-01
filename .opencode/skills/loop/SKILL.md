@@ -5,7 +5,7 @@ description: Tam otonom, çok iterasyonlu bir işi "bitene kadar" yürütmeyi ta
 
 # Otonom Döngü
 
-Otonomiyi sınırsız yapmak tehlikelidir. Otonomiyi **rapor tabanlı ve sınırlı** yapmak güçlüdür.
+Kabul işi ilerleyebildiği sürece toplam adım, görev, iterasyon veya süre tavanı yoktur. `max=0` ve toplam süre `0` sınırsızdır; açık kullanıcı sınırları desteklenir. Eşzamanlı çalışan sınırı ikidir.
 
 ## Döngü anatomisi
 
@@ -19,8 +19,8 @@ running iş paketi tut ve toplam iki çalışan sınırını aşma; verifier kab
 
 **Her iterasyonun sonunda `orchestra_report` çağrı.**
 
-Rap vermezsen döngü seni bekler. İki tur üst üste rap vermezsen kendini durdurur. Bu bir hata
-aygıtı değil, güvenlik supabıdır.
+Eksik veya bayat rapor teknik protokol arızasıdır. Planlama ve çalışan işçiyi bekleme,
+tamamlanmış çözüm denemesi değildir; bunlar için sahte ilerleme kanıtı üretme.
 
 ## Her iterasyonun ritmi
 
@@ -35,20 +35,21 @@ aygıtı değil, güvenlik supabıdır.
 
 | Durum | Ne zaman | Alanlar |
 | --- | --- | --- |
-| `continue` | Gerçek ilerleme var, hedefe ulaşıldı | `summary`, `next`, `evidence` |
+| `continue` | Hedef henüz tamamlanmadı; kanıtlı ilerleme, somut yapılabilir iş veya çalışan iş var | `summary`, `next`, defter kaydı/kanıt |
 | `done` | Kabul kriterleri karşılandı | `summary`, `evidence` |
 | `blocked` | Karar veya dış girdi gerekiyor | `summary`, `blockers` |
 
-`evidence` boşsa `continue` deme, kanıtsız ilerlemedir. En az bir gözlemlenebilir kanıt koy:
-komut çıktısı, test sonucu, dosya satırı, oluşturulan çıktı.
+İlerleme iddiasını komut çıktısı, test sonucu veya oluşturulan çıktı ile destekle.
+Planlama/bekleme raporunda somut görev/kriter ve çalışan iş referansını kullan;
+işçi henüz sonuç vermediyse tamamlanmış deneme veya ilerleme kanıtı uydurma.
 
 ## Döngüyü kendin durdurma
 
 - **Erken `done` deme.** Kabul kriterlerini tek tek kontrol et. Sağlamadıysa `continue`.
-- **Engeli saklama.** `continue` içinde "ama şuna erişemiyorum" deme. `blocked` de, ki insan
-  karar versin. Gizlenen engel, sonsuza kadar tekrarlanan başarısız iterasyondur.
-- **Tekrarı fark et.** Aynı hataya ikinci kez takılıyorsan, bu bilgi değil kısıt demektir.
-  Yaklaşımı değiştir veya engeli bildir. Üçüncü denemeyi yapma.
+- **Engeli kaydet.** İlgili paketi engeliyle işaretle; bağımsız yapılabilir işleri sürdür.
+  Kalan kabul kriterleri için ilerlenebilir yol yoksa genel `blocked` raporla.
+- **Tekrarı kaydet.** Aynı kalıcı `criterionID` / `blockerID` için üçüncü tamamlanmış başarısız çözüm denemesinde yalnız ilgili kriter durur. Model turu, rapor metni veya yeni görev kimliği sayacı sıfırlamaz. Bağımsız işler sürer; ancak yapılabilir iş kalmadığında genel `blocked` raporlanır.
+- `orchestra_task` ile `criterionID` ve `attempt: {id, blockerID, outcome, evidence}` yaz. Outcome: `failed`, `progress`, `resolved`, `verified`. Kanıt zorunludur. Çözüm açıkça `resolved` olarak kanıtlanır; geçmiş korunur. Tüm kriterler `verified` ve canlı görev kalmamışsa `done` ver.
 
 ## Kapanış
 

@@ -3,7 +3,6 @@ description: Derin analist. Birbirine rakip seçenekleri karşılaştırır, bel
 mode: subagent
 model: opencode/muse-spark-1.3-contributor-free
 color: "#a78bfa"
-steps: 30
 permissions:
   - action: edit
     resource: "*"

@@ -3,7 +3,6 @@ description: Salt-okunur keşif. Kodu, veriyi, yapılandırmayı haritalar; "bu 
 mode: subagent
 model: opencode/space-bunny-free
 color: "#38bdf8"
-steps: 30
 permissions:
   - action: edit
     resource: "*"

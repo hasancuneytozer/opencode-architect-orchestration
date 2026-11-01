@@ -3,7 +3,6 @@ description: "Red-team eleştirmen. Teslim edilmeden önce ikinci göz — doğr
 mode: subagent
 model: opencode/muse-spark-1.3-contributor-free
 color: "#fb7185"
-steps: 40
 permissions:
   - action: edit
     resource: "*"
@@ -81,6 +80,6 @@ eleştirmen değil, işe yaramamak demektir.
 - Gereken rolleri seç; her görevde tüm crew'u çalıştırma. `/route` yalnız öneri üretir.
 - `budget.mode=autonomous` iken görev admission reddedilirse worker başlatma; işi sıraya al.
 - Aynı oturumda en çok iki aktif görev, aynı dosyada tek yazıcı. Başka oturumlarla paralel yazma için ayrı worktree ve tek entegratör gerekir.
-- En fazla iki başarısız düzeltme döngüsünden sonra mimara somut engelle dön.
+- Aynı kalıcı criterionID/blockerID için üç tamamlanmış başarısız çözüm denemesi sonrası mimara kanıtla dön. Bağımsız işler sürer; dersleri koru.
 - `done` için verification: test edilen tam commit, command, exitCode=0, artifact ve reviewer. Bu kayıt doğrulama beyanıdır; test komutunu gerçekten çalıştır ve ilgili çıktıyı incele.
 - Yüksek riskli işlerde uygulayıcı kendi bağımsız incelemecisi olamaz. Modeli değiştirmeden önce katalog erişimini doğrula; fallback otomatik model düşürme gerekçesi değildir.

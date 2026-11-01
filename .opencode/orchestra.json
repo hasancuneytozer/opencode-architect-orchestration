@@ -19,10 +19,10 @@
     "perAgent": {}
   },
   "budget": {
-    "maxWallClockMs": 14400000,
-    "maxIterations": 100,
+    "maxWallClockMs": 0,
+    "maxIterations": 0,
     "maxConcurrentTasks": 2,
-    "maxTasksPerGoal": 200,
+    "maxTasksPerGoal": 0,
     "mode": "autonomous"
   },
   "capture": {
@@ -46,9 +46,9 @@
     "maxSampleChars": 220
   },
   "loop": {
-    "max": 50,
-    "maxWallClockMs": 14400000,
-    "idleTimeoutMs": 1200000,
+    "max": 0,
+    "maxWallClockMs": 0,
+    "idleTimeoutMs": 0,
     "stopPollMs": 1000
   }
 }

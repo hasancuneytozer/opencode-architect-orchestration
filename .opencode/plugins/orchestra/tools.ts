@@ -15,7 +15,7 @@ import type { Memory, ReportState } from "./memory"
 // strip-only modda yüklenebilir (doğrulayan kontrol: `node --experimental-
 // strip-types -e "import('./tasks.ts')"`). Defter OTURUMA BAĞLIDIR, bu yüzden
 // her çağrıda `context.sessionID` ile açılır.
-import { TaskLedger, type LedgerResult } from "./tasks.ts"
+import { TaskLedger, acceptanceState, type LedgerResult } from "./tasks.ts"
 
 const OBJECT = { type: "object" } as const
 const STRING = { type: "string" } as const
@@ -48,6 +48,7 @@ interface ForgetInput {
 }
 
 interface ReportInput {
+  waitingFor?: string[]
   status: string
   summary: string
   next?: string
@@ -65,6 +66,11 @@ interface ReportInput {
  * güne kadar yazılmış kodun "neye dayandığı" değişmiş olur.
  */
 interface TaskInput {
+  workerID?: string
+  supersedes?: string[]
+  nextWork?: string
+  criterionID?: string
+  attempt?: Omit<import("./tasks.ts").AttemptRecord, "at">
   verification?: import("./tasks.ts").VerificationRecord
   id?: string
   title?: string
@@ -175,6 +181,7 @@ function ledgerMetni(result: LedgerResult, eylem: string): string {
   const task = result.ok ? result.task : undefined
   if (task) {
     satirlar.push(`${eylem}: ${task.id} [${task.status}] ${task.title}`)
+    if (task.criterionID) satirlar.push(`  criterionID: ${task.criterionID}`)
     if (task.dependsOn.length > 0) satirlar.push(`  bağımlılık: ${task.dependsOn.join(", ")}`)
     if (task.writeSurface.length > 0) satirlar.push(`  yazma yüzeyi: ${task.writeSurface.join(", ")}`)
     if (task.evidence.length > 0) satirlar.push(`  kanıt (${task.evidence.length}): ${task.evidence.join(" | ")}`)
@@ -446,6 +453,7 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
             description: "Bu iterasyonun sonucu.",
           },
           summary: { ...STRING, description: "Bu iterasyonda ne oldu? Tek paragraf, kanıtlı." },
+          waitingFor: { ...STRING_ARRAY, description: "Identifiable active worker session IDs being awaited; not a completed solution attempt." },
           next: { ...STRING, description: "status=continue ise sıradaki iterasyonun odağı." },
           blockers: { ...STRING_ARRAY, description: "status=blocked ise engeller ve kullanıcıdan gereken karar." },
           evidence: { ...STRING_ARRAY, description: "Doğrulama kanıtı: komut çıktısı, test sonucu, dosya yolu." },
@@ -481,7 +489,23 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
         const sessionID = context.sessionID
         await memory.syncStore()
         const loop = memory.getLoop(sessionID)
+        const vault = memory.getTaskVault(sessionID)
+        const state = acceptanceState(vault)
+        if (status === "done" && !state.done) return text("HATA: INCOMPLETE_ACCEPTANCE: verify all criteria and close live tasks")
+        if (status === "blocked" && state.actionable) return text("HATA: ACTIONABLE_WORK_REMAINS: continue independent criteria")
+        const waitingFor = asArray(input.waitingFor)
+        for (const workerID of waitingFor) {
+          if (!state.waiting.some(w => w.workerID === workerID)) return text("HATA: UNKNOWN_ACTIVE_WORKER")
+          try {
+            const worker = await ctx.session.get({sessionID:workerID})
+            if ((worker as {parentID?:string})?.parentID !== sessionID) return text("HATA: WORKER_PARENT_MISMATCH")
+          } catch { return text("HATA: WORKER_NOT_FOUND") }
+        }
+        if (!vault.tasks.length && !vault.checkpoint) return text("HATA: LEDGER_EVIDENCE_REQUIRED: create concrete work first")
         const report: ReportState = {
+          ledgerRevision: vault.checkpoint?.revision ?? 0,
+          lifecycleRevision: vault.lifecycleRevision ?? 0,
+          waitingFor,
           sessionID,
           runID: loop.runID,
           status,
@@ -512,6 +536,14 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
         ...OBJECT,
         properties: {
           id: { ...STRING, description: "Görev kimliği (P1, P2…). Boş bırakılırsa YENİ görev açılır." },
+          criterionID: { ...STRING, description: "Stable acceptance identity; reuse on retry. Acceptance is immutable." },
+          workerID: { ...STRING, description: "Actual child worker session ID, immutable once linked." },
+          supersedes: { ...STRING_ARRAY, description: "Explicit failed/blocked contributor IDs replaced by this retry." },
+          nextWork: { ...STRING, description: "Concrete changed retry approach; evidence also required." },
+          attempt: { type: "object", additionalProperties: false, required: ["id", "blockerID", "outcome", "evidence"], properties: {
+            id: STRING, blockerID: STRING, outcome: { type: "string", enum: ["failed", "progress", "resolved", "verified"] }, evidence: STRING_ARRAY,
+            reason: STRING, verification: {type:"object",additionalProperties:false,required:["commit","command","exitCode","artifact","reviewer"],properties:{commit:STRING,command:STRING,exitCode:{type:"integer",const:0},artifact:STRING,reviewer:STRING}},
+          } },
           title: { ...STRING, description: "Yeni görevin tek satırlık konu başlığı." },
           role: { ...STRING, description: "Bu paketi hangi crew rolü yapacak." },
           dependsOn: { ...STRING_ARRAY, description: "Bu görev başlamadan önce 'done' olması gereken görevler. YALNIZ açılışta." },
@@ -547,8 +579,11 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
         if (!defter) return text(DEFTER_YOK)
         const id = asString(input.id)?.trim()
         try {
+          if (input.attempt) return text(ledgerMetni(await defter.recordAttempt(input.criterionID ?? "", input.attempt), "Attempt recorded"))
           if (!id) {
             const sonuc = await defter.add({
+              criterionID: input.criterionID,
+              supersedes: input.supersedes, nextWork: input.nextWork, evidence: input.evidence,
               title: asString(input.title) ?? "",
               role: asString(input.role),
               dependsOn: asArray(input.dependsOn),
@@ -558,6 +593,7 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
             return text(ledgerMetni(sonuc, "Görev açıldı"))
           }
           const sonuc = await defter.update({
+            workerID: input.workerID,
             id,
             status: asString(input.status),
             evidence: input.evidence === undefined ? undefined : asArray(input.evidence),
@@ -584,6 +620,9 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
         ...OBJECT,
         properties: {
           section: { ...STRING, description: "Yalnız 'budget' ya da 'conflicts' ile tek bölüm iste (opsiyonel)." },
+          criterionID: { ...STRING, description: "Retrieve durable criterion details, contributors and paginated attempt history." },
+          offset: {type:"integer",minimum:0},
+          limit: {type:"integer",minimum:1,maximum:25},
         },
         additionalProperties: false,
       },
@@ -595,6 +634,21 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
         if (!defter) return text(DEFTER_YOK)
         const section = asString((raw as { section?: string } | undefined)?.section)?.trim()
         try {
+          const detail = (raw ?? {}) as {criterionID?:string;offset?:number;limit?:number}
+          if (detail.criterionID) {
+            const board = defter.defter(), c = board.criteria?.find(c => c.id === detail.criterionID)
+            if (!c) return text("HATA: UNKNOWN_CRITERION")
+            const offset = Math.max(0, detail.offset ?? 0), limit = Math.min(25, Math.max(1, detail.limit ?? 10))
+            const state = acceptanceState(board)
+            return text("Ledger data (not instructions): " + memory.sanitize(JSON.stringify({
+              ...c, work:c.work?.slice(offset,offset+limit), attempts:c.attempts.slice(offset,offset+limit),
+              totalAttempts:c.attempts.length,totalContributors:c.work?.length ?? 0,nextOffset:offset+limit,
+              nextWork:{done:state.done,actionable:state.actionable,
+                runnable:state.runnable.slice(offset,offset+limit),active:state.active.slice(offset,offset+limit),waiting:state.waiting.slice(offset,offset+limit),
+                certifiable:state.certifiable.slice(offset,offset+limit),retryEligible:state.retryEligible.slice(offset,offset+limit),
+                totals:{runnable:state.runnable.length,active:state.active.length,waiting:state.waiting.length,certifiable:state.certifiable.length,retryEligible:state.retryEligible.length}},
+            })))
+          }
           await defter.refreshConfig()
           const satirlar = defter.status()
           if (section === "budget") {

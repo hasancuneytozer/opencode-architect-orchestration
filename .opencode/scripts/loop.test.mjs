@@ -36,7 +36,8 @@ import * as araclar from "../plugins/orchestra/tools.ts"
 
 const { Memory } = hafizaMod
 /** Yeni export eski kodda yoktur; kontrol bunu "KALDI" olarak raporlar. */
-const yeni = (isim) => (typeof dongu[isim] === "function" ? dongu[isim] : null)
+// Historical report-only lifecycle tests opt in explicitly; progress.test exercises honest defaults.
+const yeni = (isim) => isim === "runLoop" ? (ctx,m,input,options={}) => dongu.runLoop(ctx,m,input,{...options,legacyReportOnly:true}) : (typeof dongu[isim] === "function" ? dongu[isim] : null)
 
 let pass = 0
 let fail = 0
@@ -254,6 +255,11 @@ await bolum("3. orchestra_report OTURUMA YAZAR", async () => {
   const m = await Memory.open(dir)
   await m.setLoop("ses_A", { runID: "rA", status: "running", iteration: 1 })
   await m.setLoop("ses_B", { runID: "rB", status: "running", iteration: 5 })
+  for (const sessionID of ["ses_A", "ses_B"]) await m.setTaskVault(sessionID, {
+    tasks: [], budget: {startedAt:0,iterations:0,tasks:0},
+    criteria: [{id:"C",acceptance:"fixture",verified:sessionID==="ses_A",generation:1,verifiedGeneration:sessionID==="ses_A"?1:undefined,attempts:[]}],
+    checkpoint: {revision:1,criterionID:"C",attemptID:"fixture",evidence:["fixture.log"]},
+  })
 
   let editor = null
   const ctx = {
@@ -309,7 +315,7 @@ await bolum("4. BAYAT RAPOR YENI TURDA TASIMAZ", async () => {
     })
     await sinirla(runLoop(ctx, m, { sessionID: "ses_X", prompt: "hedef" }, { config: hizliConfig({ max: 4 }) }), 4000, "bayat dongu")
     check("2 tur rapor verilmedigi icin durdu", kayit.sentetik.join("\n").includes("raporunu vermedi"), true)
-    check("bayat rapor sayesinde dongu dongusuz bitmedi", m.getLoop("ses_X").status, "exhausted")
+    check("bayat rapor technical blocked", m.getLoop("ses_X").status, "blocked")
     check("bitis nedeni rapor eksikligi", (m.getLoop("ses_X").stopReason ?? "").includes("raporunu vermedi"), true)
     check("tam olarak 3 tur yurutuldu", kayit.promptlar.length, 3)
   }
@@ -322,7 +328,7 @@ await bolum("4. BAYAT RAPOR YENI TURDA TASIMAZ", async () => {
     const { ctx, kayit } = sahteCtx(m, { tur: async () => undefined })
     await sinirla(runLoop(ctx, m, { sessionID: "ses_Y", prompt: "hedef" }, { config: hizliConfig({ max: 2 }) }), 4000, "calistirma dongu")
     check("onceki calistirmanin raporu KAPATMADI", (m.getLoop("ses_Y").stopReason ?? "").includes("raporunu vermedi"), true)
-    check("dongu done degil exhausted", m.getLoop("ses_Y").status, "exhausted")
+    check("dongu done degil blocked", m.getLoop("ses_Y").status, "blocked")
   }
 
   // 4c. runID eslesmeyen rapor kapatiyor mu? (yeni kod: hayir)
@@ -335,7 +341,7 @@ await bolum("4. BAYAT RAPOR YENI TURDA TASIMAZ", async () => {
       },
     })
     await sinirla(runLoop(ctx, m, { sessionID: "ses_Z", prompt: "hedef" }, { config: hizliConfig({ max: 2 }) }), 4000, "runid dongu")
-    check("runID uymayan rapor donguyu kapattirmadi", m.getLoop("ses_Z").status, "exhausted")
+    check("runID uymayan rapor donguyu kapattirmadi", m.getLoop("ses_Z").status, "blocked")
     checkDogru("tamamlandi mesaji YOK", !kayit.sentetik.join("\n").includes("Döngü tamamlandı"))
   }
 
@@ -364,7 +370,7 @@ await bolum("4. BAYAT RAPOR YENI TURDA TASIMAZ", async () => {
     })
     await sinirla(runLoop(ctx, m, { sessionID: "ses_E", prompt: "hedef" }, { config: hizliConfig({ max: 5 }) }), 4000, "ayni dongu")
     check("ayni kanit -> exhausted", m.getLoop("ses_E").status, "exhausted")
-    checkDogru("bitis nedeni ilerleme yok", (m.getLoop("ses_E").stopReason ?? "").includes("ilerleme yok"))
+    checkDogru("explicit compatibility respects optional cap", (m.getLoop("ses_E").stopReason ?? "").includes("iterasyon sınırı"))
   }
 })
 
@@ -428,7 +434,7 @@ await bolum("5. /loop stop GERCEK IPTAL", async () => {
     const m = await Memory.open(dir)
     const { ctx, kayit } = sahteCtx(m, { wait: () => Promise.reject(new Error("oturum kapandi")) })
     await sinirla(runLoop(ctx, m, { sessionID: "ses_R", prompt: "hedef" }, { config: hizliConfig({ max: 2 }) }), 4000, "red dongu")
-    check("wait reddi donguyu kilitlemedi", m.getLoop("ses_R").status, "exhausted")
+    check("wait reddi donguyu kilitlemedi", m.getLoop("ses_R").status, "blocked")
     checkDogru("bitis nedeni oturum kapanmasi", sonMetin(kayit).includes("kontrollü sonlandırıldı"))
     check("redden sonra tek tur", kayit.promptlar.length, 1)
   }
@@ -585,7 +591,7 @@ await bolum("9. YABANCI RAPOR DONGUYU KAPATMAZ", async () => {
     },
   })
   await sinirla(runLoop(ctx, m, { sessionID: "ses_Kendi", prompt: "hedef" }, { config: hizliConfig({ max: 3 }) }), 4000, "yabanci dongu")
-  check("baski oturumun done raporu benim dongumu kapattirmadi", m.getLoop("ses_Kendi").status, "exhausted")
+  check("baski oturumun done raporu benim dongumu kapattirmadi", m.getLoop("ses_Kendi").status, "blocked")
   checkDogru("bitis nedeni kendi raporumun eksikligi", (m.getLoop("ses_Kendi").stopReason ?? "").includes("raporunu vermedi"))
   checkDogru("baski raporu oldu yuvasinda duruyor", m.getReport("ses_Baski").summary === "baski oturum bitti")
   check("kendi rapor yuvam bos kaldi", m.getReport("ses_Kendi"), undefined)
@@ -615,8 +621,8 @@ await bolum("10. ITERASYON PROMPT METNI", async () => {
   check("status ayristirilir", parse("status").action, "status")
   check("run varsayilan", parse("hedefi yap").action, "run")
   check("--max okunur", parse("hedefi yap --max=7").max, 7)
-  check("--max ust sinir", parse("hedefi yap --max=99").max, 50)
-  check("--max alt sinir", parse("hedefi yap --max=0").max, 1)
+  check("--max explicit cap", parse("hedefi yap --max=99").max, 99)
+  check("--max unbounded", parse("hedefi yap --max=0").max, 0)
   check("yabanci 'iterasyon' sayisi", parse("hedefi yap 4 iterasyon").max, 4)
   check("max verilmediginde belirtilmez (yapilandirma uygulanabilsin)", parse("hedefi yap").max, undefined)
   check("hedef metni korunur", parse("stop").goal, "")
@@ -664,8 +670,8 @@ await bolum("11. YAPILANDIRMA OKUMA YOLU", async () => {
   const m = await Memory.open(dir)
   const { ctx, kayit } = sahteCtx(m, { tur: async () => undefined })
   await sinirla(runLoop(ctx, m, { sessionID: "ses_Cf", prompt: "hedef" }, {}), 4000, "yapilandirma dongu")
-  check("varsayilan tavan 4 saat", dongu.DEFAULT_LOOP_CONFIG.maxWallClockMs, 4 * 60 * 60 * 1000)
-  check("varsayilan max 10", dongu.DEFAULT_LOOP_CONFIG.max, 10)
+  check("varsayilan sure sinirsiz", dongu.DEFAULT_LOOP_CONFIG.maxWallClockMs, 0)
+  check("varsayilan max sinirsiz", dongu.DEFAULT_LOOP_CONFIG.max, 0)
   check("config verilmeden de dongu calisti", kayit.promptlar.length, 2)
   checkDogru("rapor yokluk supabi devreye girdi", sonMetin(kayit).includes("raporunu vermedi"))
 })

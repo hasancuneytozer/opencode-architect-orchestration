@@ -3,7 +3,6 @@ description: Doğrulayıcı. Test/build/çalıştırma yapar, çıktıdan gerçe
 mode: subagent
 model: opencode/muse-spark-1.3-contributor-free
 color: "#22d3ee"
-steps: 60
 permissions:
   - action: edit
     resource: "*"

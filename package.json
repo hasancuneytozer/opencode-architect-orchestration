@@ -1,7 +1,7 @@
 {
   "name": "opencode-architect-orchestration",
   "version": "1.0.0",
-  "description": "Bounded project-local OpenCode orchestration and verification policies",
+  "description": "Progress-driven project-local OpenCode orchestration and verification policies",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,7 +15,7 @@
     "opencode:local:restore": "node tools/opencode-runtime/local.mjs restore",
     "opencode:local:attach": "node tools/opencode-runtime/local.mjs attach",
     "test:local-runtime": "node --test tools/opencode-runtime/patch.test.mjs tools/opencode-runtime/support.test.mjs tools/opencode-runtime/server.test.mjs",
-    "test:hardening": "node --experimental-transform-types --no-warnings --test .opencode/scripts/hardening.test.mjs && npm run test:shared",
+    "test:hardening": "node --experimental-transform-types --no-warnings --test .opencode/scripts/hardening.test.mjs .opencode/scripts/progress.test.mjs .opencode/scripts/wait-policy.test.mjs && npm run test:shared",
     "route": "node scripts/route-task.mjs",
     "test:shared": "node --test scripts/sync-shared.test.mjs"
   },

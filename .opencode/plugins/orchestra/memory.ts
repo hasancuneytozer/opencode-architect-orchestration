@@ -24,7 +24,7 @@ import path from "node:path"
 // Yalnız TİP: görev şeması `tasks.ts`'te yaşar. Değer import'u YOK; `tasks.ts`
 // de bizi yalnız `import type` ile görür, yani çalışma anında hiçbir yönde
 // düğüm oluşmaz (`tasks.ts` strip-only modda yüklenebilir kalmalı).
-import type { BudgetState, TaskRecord } from "./tasks"
+import type { BudgetState, TaskRecord, TaskBoard } from "./tasks"
 
 export type LessonKind = "auto" | "agent" | "curated"
 export type LessonStatus = "active" | "retired"
@@ -82,6 +82,9 @@ export interface LoopState {
 }
 
 export interface ReportState {
+  lifecycleRevision?: number
+  waitingFor?: string[]
+  ledgerRevision?: number
   /** Raporu yazan oturum. */
   sessionID?: string
   /** Raporun ait olduğu döngü çalıştırması (yoksa döngü dışı rapor). */
@@ -103,7 +106,7 @@ export interface ReportState {
  * dosyanın `setLoop`/`setReport` desenini izler — görev tarafı kendi yazma
  * yolunu YAZMAZ.
  */
-export interface TaskVault {
+export interface TaskVault extends TaskBoard {
   /** Görev kayıtları (`tasks.ts` → `TaskRecord`). */
   tasks: TaskRecord[]
   /** Bütçe sayacı (`tasks.ts` → `BudgetState`). */
@@ -161,6 +164,11 @@ const sayi = (value: unknown): number =>
  * kaybettirmemeli. Kimliksiz kayıt ATILIR, dizi olmayan alan boş diziye
  * düşer, sayı olmayan bütçe alanı 0 olur.
  */
+function canonicalVault(raw: TaskVault): string {
+  const sort = (v: unknown): unknown => Array.isArray(v) ? v.map(sort) : v && typeof v === "object"
+    ? Object.fromEntries(Object.entries(v).filter(([,v]) => v !== undefined).sort(([a],[b]) => a.localeCompare(b)).map(([k,v]) => [k,sort(v)])) : v
+  return JSON.stringify(sort(normalizeVault(raw)))
+}
 function normalizeVault(raw: unknown): TaskVault {
   const kaynak = (raw && typeof raw === "object" ? raw : {}) as Partial<TaskVault>
   const tasks: TaskRecord[] = []
@@ -184,6 +192,10 @@ function normalizeVault(raw: unknown): TaskVault {
   const budget = (kaynak.budget ?? {}) as Partial<BudgetState>
   return {
     tasks,
+    lifecycleRevision: sayi(kaynak.lifecycleRevision),
+    completedTaskIDs: Array.isArray(kaynak.completedTaskIDs) ? metinDizi(kaynak.completedTaskIDs) : undefined,
+    criteria: Array.isArray(kaynak.criteria) ? structuredClone(kaynak.criteria) : undefined,
+    checkpoint: kaynak.checkpoint ? structuredClone(kaynak.checkpoint) : undefined,
     budget: {
       startedAt: sayi(budget.startedAt),
       iterations: sayi(budget.iterations),
@@ -1633,10 +1645,7 @@ export class Memory {
   getTaskVault(sessionID: string): TaskVault {
     const kayitli = this.store.taskVaults?.[sessionID]
     if (!kayitli) return { tasks: [], budget: { ...BOSS_BUDGET } }
-    return {
-      tasks: kayitli.tasks.map((task) => ({ ...task })),
-      budget: { ...kayitli.budget },
-    }
+    return structuredClone(kayitli)
   }
 
   /**
@@ -1649,19 +1658,14 @@ export class Memory {
     return this.write(() =>
       this.locked("state", async () => {
         await this.resync(this.stateFile, this.storeStamp, (value) => (this.storeStamp = value))
-        if (expected !== undefined && JSON.stringify(this.getTaskVault(sessionID)) !== JSON.stringify(expected))
+        if (expected !== undefined && canonicalVault(this.getTaskVault(sessionID)) !== canonicalVault(expected))
           throw new Error("TASK_VAULT_CONFLICT: reload the ledger and retry; no change was written")
         // Budalama görev başına `tasks.ts` → `pruneTasks` içindedir (şema orada
         // yaşar). Burada yalnız OTURUM yuvası sınırı uygulanır: koşan görevi
         // olan oturum, bitmiş oturumdan SONRA atılır.
-        const deger: TaskVault = { tasks: vault.tasks, budget: { ...vault.budget } }
-        this.store.taskVaults = pruneSessionSlots(
-          { ...(this.store.taskVaults ?? {}), [sessionID]: deger },
-          MAX_STORED_SESSIONS,
-          (v) => v.tasks.some((task) => task.status === "running"),
-          (v) => Math.max(0, ...v.tasks.map((task) => yasOf(task.updatedAt, task.finishedAt, task.startedAt, task.createdAt))),
-          sessionID,
-        )
+        const deger: TaskVault = structuredClone(vault)
+        // Acceptance/attempt history is durable even when terminal tasks are pruned.
+        this.store.taskVaults = { ...(this.store.taskVaults ?? {}), [sessionID]: deger }
         await this.persistStore()
         return deger
       }),

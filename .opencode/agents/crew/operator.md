@@ -3,7 +3,6 @@ description: Operatör. Ortam kurulumu, bağımlılıklar, servisler, süreçler
 mode: subagent
 model: opencode/muse-spark-1.3-contributor-free
 color: "#f97316"
-steps: 60
 permissions:
   - action: subagent
     resource: "*"

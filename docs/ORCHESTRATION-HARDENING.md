@@ -1,4 +1,4 @@
-# Bounded orchestration — 2026-10-31
+# Orchestration safeguards — updated 2026-11-01
 
 ## Start small
 
@@ -6,11 +6,11 @@ Use Orchestra for coding workflow; opencode-library is only needed when building
 
 Run `npm run route -- implementation low` (or `architecture high`, `review normal`, `research low`, `docs low`) before assigning work. The command reads the configured role model and returns a recommendation; it does not launch agents, call a provider, or change models. Availability remains **unverified** until checked against the authenticated provider catalog. Existing local role frontmatter is authoritative. Automatic fallback is disabled: an unavailable model must be reported, not silently substituted.
 
-Use one maker for a small change. Normal independent tasks may use at most two workers; high-risk changes use one worker plus an architectural decision and independent critic. Reviewers must use a checked commit and actual command results. Stop after two failed repair rounds and reassess. Extra reviewers are not automatically useful: each rereads context and consumes resources.
+Use one maker for a small change. Normal independent tasks may use at most two workers; high-risk changes use one worker plus an architectural decision and independent critic. Reviewers must use a checked commit and actual command results. Three unsuccessful solution attempts on the same criterion/blocker block that work; continue independent actionable work. Extra reviewers are not automatically useful: each rereads context and consumes resources.
 
 ## Enforced boundaries
 
-The project selects `budget.mode: autonomous`: admission rejects task-count, iteration, concurrent-task and elapsed-time overflow. Only running tasks consume concurrent slots; verifying still reserves its declared write surface. Advisory mode retains warning-only behavior for legacy users. Limits in `.opencode/orchestra.json` are finite: 200 tasks, 100 starts, 2 running tasks, 4 hours; loop max 50 iterations and 4 hours, with the remaining deadline passed into each wait. Longer work requires user approval to increase the finite limits; do not use unlimited or zero limits.
+The project selects `budget.mode: autonomous`. Default total task-count, iteration and elapsed-time budgets are zero (disabled); role model-step limits are absent. Only running tasks consume the two concurrent slots; verifying still reserves its declared write surface. Optional explicitly configured total caps remain available for bounded experiments, but normal work ends on verified acceptance or a real blocker, not elapsed time or total turns. See [the progress protocol](PROGRESS-ORCHESTRATION.md) for durable criterion identity, attempts, report checkpoints and recovery. Advisory mode retains warning-only admission behavior for legacy users.
 
 On worker return, transition its record in the same turn to verifying or blocked/failed; never automatically mark done or expire a lock to free a slot. A real verifier agent needs its own running task and counts toward the two-worker cap; it tests the acceptance criteria. An explicit autonomous-work request uses `/loop` with its existing report and stop safeguards.
 
@@ -30,15 +30,15 @@ Prove duplicates before consolidating them into one actionable rule; use `supers
 
 `node scripts/sync-shared.mjs --target <existing-project>` is dry-run by default. Review its plan before adding `--apply`. Source hashes come from `docs/orchestra-shared.json`; target baseline hashes live in `docs/orchestra-shared-state.json`. An untracked/divergent target is a conflict; the whole preflight stops before writing. Existing updated files are backed up under `.orchestra-sync-backups/`.
 
-This is a curated shared-file bundle, **not a full project installer**. It deliberately excludes roles, user configuration, secrets, runtime state, memory.ts and other divergent integration code. Those need explicit review. Stop concurrent writers before applying. The apply phase is not a filesystem transaction; an unexpected I/O failure can leave a partial update, recoverable from backups. Symlink/junction paths and traversal are rejected. No remote download occurs.
+This is a curated shared-file bundle, **not a full project installer**. Progress-driven releases include the engine's persistence and context-injection code (`memory.ts`, `index.ts`) and associated regression tests so dependent schema changes travel together. Roles, user configuration, secrets and runtime data remain excluded and need explicit review. On first adoption of newly managed paths, compare the consumer against the previous source version before recording a baseline; divergent content must be merged, never blindly adopted. Project-specific route mappings also require an explicit merge. Stop concurrent writers on the affected paths before applying. The apply phase is not a filesystem transaction; an unexpected I/O failure can leave a partial update, recoverable from backups. Symlink/junction paths and traversal are rejected. No remote download occurs.
 
 ## Cost and compatibility
 
-Task/iteration/concurrency limits bound work, not ChatGPT weekly usage. This change does not measure actual model quota, authorize a new provider, or promise free-model availability. OAuth access, subscription usage and API billing depend on the actual provider/integration. Pilot a small change and inspect measured usage before increasing parallelism.
+Concurrency limits bound parallel execution, not ChatGPT weekly usage. This change does not measure actual model quota, authorize a new provider, or promise free-model availability. OAuth access, subscription usage and API billing depend on the actual provider/integration.
 
 The repository's optional patched runtime is pinned to 2.0.18. Installed CLI 2.1.4 must not be treated as equivalent. Its default discovery commands encountered an occupied service port, and debug agents rejects standalone routing flags. An isolated 2.1.4 server on a separate port answered authenticated agent/plugin queries with empty lists for both project locations; this is NOT a successful role/plugin discovery check. Existing user services were left untouched. No paid or free provider inference was run for this release.
 
-## Verification
+## Verification history (2026-10-31; not evidence for later changes)
 
 For scope verification, compare `git status` and file hashes against the initial baseline. A previously existing untracked file is not automatically outside the task's scope; establish whether it changed rather than excluding it solely because it was untracked.
 

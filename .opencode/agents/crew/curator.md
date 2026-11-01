@@ -3,7 +3,6 @@ description: Hafıza küratörü. Otomatik yakalanmış ham hataları kalıcı d
 mode: subagent
 model: opencode/space-bunny-free
 color: "#a3e635"
-steps: 40
 permissions:
   - action: subagent
     resource: "*"

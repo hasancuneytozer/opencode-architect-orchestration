@@ -302,9 +302,9 @@ await bolum("5. BUTCE", async () => {
   check("tracker durumu KOPYA döner", Tracker.from(t.state).state, { startedAt: 1_000, iterations: 1, tasks: 2 })
   check("bozuk durum savunmacı", Tracker.from({ startedAt: "x", iterations: -4 }).state, { startedAt: 0, iterations: 0, tasks: 0 })
 
-  check("varsayilan bütçe 4 saat", gorev.DEFAULT_BUDGET.maxWallClockMs, 14_400_000)
-  check("varsayilan es zamanli", gorev.DEFAULT_BUDGET.maxConcurrentTasks, 8)
-  check("varsayilan gorev tavani", gorev.DEFAULT_BUDGET.maxTasksPerGoal, 200)
+  check("varsayilan bütçe sinirsiz", gorev.DEFAULT_BUDGET.maxWallClockMs, 0)
+  check("varsayilan es zamanli", gorev.DEFAULT_BUDGET.maxConcurrentTasks, 2)
+  check("varsayilan gorev tavani", gorev.DEFAULT_BUDGET.maxTasksPerGoal, 0)
 })
 
 // ---------------------------------------------------------------------------
@@ -319,11 +319,11 @@ await bolum("6. BUDALAMA (MAX_STORED_TASKS)", async () => {
   const yeniKayit = kayit({ id: "now", status: "running", updatedAt: "2030-01-01T00:00:00.000Z" })
   const sonuc = prune([eski, yeniKayit], 1)
   check("done görev önce atılır", sonuc.map((t) => t.id), ["now"])
-  check("koşan görev KORUNUR", prune([yeniKayit, kayit({ id: "b", status: "planned" })], 1).map((t) => t.id), ["now"])
+  check("canli görevler KORUNUR", prune([yeniKayit, kayit({ id: "b", status: "planned" })], 1).map((t) => t.id), ["now", "b"])
   check("sınır altında dokunulmaz", prune([yeniKayit], 5).length, 1)
   check("sınır sıfırsa hepsi düşer", prune([eski, yeniKayit], 0).length, 0)
   check("atılacak aday yoksa dokunulmaz", prune([kayit({ id: "a", status: "running" }), kayit({ id: "b", status: "running" })], 2, "now").length, 2)
-  check("keepId ASLA atılmaz", prune([kayit({ id: "now", status: "running" }), kayit({ id: "b", status: "running" })], 1, "now").map((t) => t.id), ["now"])
+  check("keepId ASLA atılmaz", prune([kayit({ id: "now", status: "running" }), kayit({ id: "b", status: "running" })], 1, "now").map((t) => t.id), ["now", "b"])
 
   const sirali = [
     kayit({ id: "a", status: "done", updatedAt: "2030-01-01T00:00:00.000Z" }),
@@ -434,19 +434,20 @@ await bolum("8. DEFTER UCUNDAN UCA", async () => {
     const m = await Memory.open(dir)
     const d = await TaskLedger.open(m, undefined, "S")
     await d.add({ title: "Kriteri yok" })
-    await d.update({ id: "P1", status: "running" })
-    await d.update({ id: "P1", status: "verifying" })
+    check("draft cannot start", (await d.update({ id: "P1", status: "running" })).ok, false)
     const sonuc = await d.update({ id: "P1", status: "done", evidence: ["test ok"] })
     check("kabul kriteri yoksa done reddi", sonuc.ok, false)
-    checkDogru("gerekce kabul kriterini soyluyor", sonuc.error.includes("kabul kriteri"))
+    checkDogru("draft remains planned", d.get("P1").status === "planned")
     // REDDEDİLEN GÜNCELLEME HİÇBİR ŞEY YAZMAZ: kanıt, reddedilen çağrıyla
     // geldiği için düşer. Kanıt ayrı bir çağrıda eklenmelidir.
     check("reddedilen cagri kaniti da YAZMADI", d.get("P1").evidence, [])
     await d.update({ id: "P1", evidence: ["test ok"] })
     check("kanit ayri cagriyla eklendi", d.get("P1").evidence, ["test ok"])
     await d.update({ id: "P1", acceptance: "test yesil" })
-    check("kriter eklendi", d.get("P1").acceptance, "test yesil")
-    check("kriter eklendi", (await d.update({ id: "P1", status: "done" })).ok, true)
+    check("draft criterion bound", d.get("P1").acceptance, "test yesil")
+    await d.update({ id:"P1",status:"running" })
+    await d.update({ id:"P1",status:"verifying" })
+    check("bound draft can complete", (await d.update({ id: "P1", status: "done" })).ok, true)
   }
 
   // 8c. Bagimlilik sirasi: P1 bitmeden P2 calisamaz.
@@ -486,9 +487,9 @@ await bolum("8. DEFTER UCUNDAN UCA", async () => {
     const dir = geciciDizin("cakisma")
     const m = await Memory.open(dir)
     const d = await TaskLedger.open(m, undefined, "S")
-    await d.add({ title: "A", writeSurface: ["src/"] })
+    await d.add({ title: "A", acceptance:"surface A", writeSurface: ["src/"] })
     await d.update({ id: "P1", status: "running" })
-    const ikinci = await d.add({ title: "B", writeSurface: ["src/a.ts"] })
+    const ikinci = await d.add({ title: "B", acceptance:"surface B", writeSurface: ["src/a.ts"] })
     check("cakisma tespit edilir", ikinci.notes.some((n) => n.metin.includes("ÇAKIŞMA")), true)
     checkDogru("tespit engelleMEZ", ikinci.ok, true)
     const ikinciKosu = await d.update({ id: "P2", status: "running" })
@@ -553,7 +554,7 @@ await bolum("9. BUTCE YAPILANDIRMASI", async () => {
 
   // Depodaki GERCEK yapilandirma da okunabilir ve sözleşmeyi tutar.
   const gercek = await load(join(process.cwd(), ".."))
-  check("depodaki budget blogu okunuyor", gercek.maxTasksPerGoal, 200)
+  check("depodaki budget blogu okunuyor", gercek.maxTasksPerGoal, 0)
 })
 
 // ---------------------------------------------------------------------------
@@ -626,7 +627,7 @@ await bolum("11. YAZMA YUZEYI SOZLESMESI", async () => {
     const dir = geciciDizin("yuzey-esit")
     const m = await Memory.open(dir)
     const d = await TaskLedger.open(m, undefined, "S")
-    await d.add({ title: "A", writeSurface: ["src/a.ts", "src/b.ts"] })
+    await d.add({ title: "A", acceptance:"surface A", writeSurface: ["src/a.ts", "src/b.ts"] })
     await d.update({ id: "P1", status: "running" })
     const red = await d.update({ id: "P1", writeSurface: ["docs/x.md", "docs/y.md"] })
     check("EŞİT uzunlukta değişim REDDEDİLDİ", red.ok, false)
@@ -640,7 +641,7 @@ await bolum("11. YAZMA YUZEYI SOZLESMESI", async () => {
     const dir = geciciDizin("yuzey-uzun")
     const m = await Memory.open(dir)
     const d = await TaskLedger.open(m, undefined, "S")
-    await d.add({ title: "A", writeSurface: ["src/a.ts", "src/b.ts", "src/c.ts"] })
+    await d.add({ title: "A", acceptance:"surface A", writeSurface: ["src/a.ts", "src/b.ts", "src/c.ts"] })
     await d.update({ id: "P1", status: "running" })
 
     const bir = await d.update({ id: "P1", writeSurface: ["src/a.ts", "src/c.ts"] })
@@ -669,7 +670,7 @@ await bolum("11. YAZMA YUZEYI SOZLESMESI", async () => {
     const dir = geciciDizin("yuzey-planned")
     const m = await Memory.open(dir)
     const d = await TaskLedger.open(m, undefined, "S")
-    await d.add({ title: "A", writeSurface: ["src/a.ts", "src/b.ts", "src/c.ts"] })
+    await d.add({ title: "A", acceptance:"surface A", writeSurface: ["src/a.ts", "src/b.ts", "src/c.ts"] })
     check("görev planned açıldı", d.get("P1").status, "planned")
     const daralt = await d.update({ id: "P1", writeSurface: ["src/a.ts"] })
     check("planned daraltma KABUL EDİLDİ", daralt.ok, true)
@@ -694,7 +695,7 @@ await bolum("11. YAZMA YUZEYI SOZLESMESI", async () => {
     const dir = geciciDizin("yuzey-atomik")
     const m = await Memory.open(dir)
     const d = await TaskLedger.open(m, undefined, "S")
-    await d.add({ title: "Orijinal baslik", writeSurface: ["src/a.ts", "src/b.ts"] })
+    await d.add({ title: "Orijinal baslik", acceptance:"surface", writeSurface: ["src/a.ts", "src/b.ts"] })
     await d.update({ id: "P1", status: "running" })
     const butceOnce = d.defter().budget.iterations
     const diskOnce = JSON.parse(okunur(statePath(dir))).taskVaults.S.tasks[0]
@@ -712,7 +713,7 @@ await bolum("11. YAZMA YUZEYI SOZLESMESI", async () => {
     check("ret: başlık değişmedi", d.get("P1").title, "Orijinal baslik")
     check("ret: kanıt YAZILMADI", d.get("P1").evidence, [])
     check("ret: rol değişmedi", d.get("P1").role, undefined)
-    check("ret: kabul kriteri değişmedi", d.get("P1").acceptance, "")
+    check("ret: kabul kriteri değişmedi", d.get("P1").acceptance, "surface")
     check("ret: durum değişmedi", d.get("P1").status, "running")
     check("ret: yüzey değişmedi", d.get("P1").writeSurface, ["src/a.ts", "src/b.ts"])
     check("ret: bütçe sayacı değişmedi", d.defter().budget.iterations, butceOnce)
@@ -747,13 +748,13 @@ await bolum("11. YAZMA YUZEYI SOZLESMESI", async () => {
     const dir = geciciDizin("verifying-cakisma")
     const m = await Memory.open(dir)
     const d = await TaskLedger.open(m, undefined, "S")
-    await d.add({ title: "A", writeSurface: ["src/"] })
+    await d.add({ title: "A", acceptance:"surface A", writeSurface: ["src/"] })
     await d.update({ id: "P1", status: "running" })
-    await d.add({ title: "B", writeSurface: ["src/a.ts"] })
+    await d.add({ title: "B", acceptance:"surface B", writeSurface: ["src/a.ts"] })
     await d.update({ id: "P2", status: "running" })
     await d.update({ id: "P2", status: "verifying" })
 
-    const ucuncu = await d.add({ title: "C", writeSurface: ["src/a.ts"] })
+    const ucuncu = await d.add({ title: "C", acceptance:"surface C", writeSurface: ["src/a.ts"] })
     check("açılış uyarısı verifying'i de görüyor", ucuncu.notes.some((n) => n.metin.includes("P2 (verifying)")), true)
     checkDogru("açılış uyarısı yine engellemiyor", ucuncu.ok, true)
 
@@ -773,7 +774,7 @@ await bolum("11. YAZMA YUZEYI SOZLESMESI", async () => {
     const dir = geciciDizin("yuzey-platform")
     const m = await Memory.open(dir)
     const d = await TaskLedger.open(m, undefined, "S")
-    await d.add({ title: "W", writeSurface: ["C:\\Proj\\A.ts"] })
+    await d.add({ title: "W", acceptance:"surface W", writeSurface: ["C:\\Proj\\A.ts"] })
     await d.update({ id: "P1", status: "running" })
     // Normalleştirilmiş hâli AYNI olan yol koşarken değiştirilebilir.
     const ayniYol = await d.update({ id: "P1", writeSurface: ["c:/proj/a.ts", "docs/x.md"] })
@@ -800,7 +801,7 @@ await bolum("12. ARAC KATMANINDA YUZEY REDDI", async () => {
     return
   }
   const mimar = { agent: "architect", sessionID: "S" }
-  await task.execute({ title: "Paket", writeSurface: ["src/a.ts", "src/b.ts"] }, mimar)
+  await task.execute({ title: "Paket", acceptance:"surface", writeSurface: ["src/a.ts", "src/b.ts"] }, mimar)
   await task.execute({ id: "P1", status: "running" }, mimar)
   const red = await task.execute({ id: "P1", writeSurface: ["docs/x.md"], evidence: ["kanıt"] }, mimar)
   checkDogru("araç çıktısı HATA ile başlıyor", red.content.startsWith("HATA"))

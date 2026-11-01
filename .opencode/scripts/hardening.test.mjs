@@ -37,7 +37,7 @@ test("running slots, verifying locks and rejection diagnostics agree through too
  assert.match((await task.execute({id:"P4",status:"running"},ctx)).content,/WRITE_CONFLICT: P1 \(src\/a\.ts\)/)
  assert.match((await task.execute({id:"P2",status:"running"},ctx)).content,/\[running\]/)
  assert.match((await task.execute({id:"P3",status:"running"},ctx)).content,/\[running\]/)
- const fifth=await task.execute({title:"fifth",writeSurface:["src/d.ts"]},ctx)
+  const fifth=await task.execute({title:"fifth",writeSurface:["src/d.ts"],acceptance:"fifth checked"},ctx)
  assert.match(fifth.content,/P5/)
  const denied=(await task.execute({id:"P5",status:"running"},ctx)).content
  assert.match(denied,/BUDGET_EXCEEDED/);assert.match(denied,/concurrency 3\/2/)
@@ -50,7 +50,7 @@ test("running slots, verifying locks and rejection diagnostics agree through too
 })
 test("budget admission and verification bind to an attempt",async t=>{
  const {ledger}=await setup(t,{maxConcurrentTasks:1,maxTasksPerGoal:2})
- const a=await ledger.add({title:"a",acceptance:"checked"});const b=await ledger.add({title:"b"})
+  const a=await ledger.add({title:"a",acceptance:"checked"});const b=await ledger.add({title:"b",acceptance:"b checked"})
  assert.equal((await ledger.add({title:"over budget"})).ok,false)
  await ledger.update({id:a.task.id,status:"running"})
  assert.equal((await ledger.update({id:b.task.id,status:"running"})).ok,false)
@@ -79,6 +79,8 @@ test("routing is bounded and does not spawn or silently fallback",()=>{
  assert.equal(routeTask("implementation","low").reviewer,null)
  assert.equal(routeTask("implementation","high").architecturalDecision,true)
  assert.equal(routeTask("implementation","high").maxParallel,1)
+ assert.equal(routeTask("implementation").maxRepairRounds,3)
+ assert.match(routeTask("implementation").repairScope,/same acceptance criterion and blocker/)
  assert.equal(routeTask("review").automaticFallback,false)
  assert.equal(routeTask("research").spawn,false)
  assert.throws(()=>routeTask("../../outside"))

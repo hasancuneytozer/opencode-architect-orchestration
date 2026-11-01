@@ -3,7 +3,6 @@ description: Dış kaynak araştırmacı. Web, dokümantasyon, kütüphane ve st
 mode: subagent
 model: opencode/space-bunny-free
 color: "#34d399"
-steps: 30
 permissions:
   - action: edit
     resource: "*"

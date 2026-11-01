@@ -57,6 +57,9 @@ export function validVerification(v: unknown): v is VerificationRecord {
     [r.command,r.artifact,r.reviewer].every(s => typeof s === "string" && s.trim().length > 0 && s.length <= 4096)
 }
 export interface TaskRecord {
+  nextWork?: string
+  workerID?: string
+  criterionID?: string
   verification?: VerificationRecord
   /** Kısa, kalıcı kimlik: P1, P2 … */
   id: string
@@ -117,16 +120,14 @@ export interface BudgetConfig {
 /**
  * GÜVENLİ VARSAYILANLAR.
  *
- * `maxWallClockMs` bilerek `loop.ts`'in `DEFAULT_MAX_WALL_CLOCK_MS` ile AYNI
- * değerdedir (4 saat) ama AYRI bir sayacı ölçer: `/loop` kendi çalıştırmasının
- * duvar saatini, buradaki bütçe o hedefin defter ömrünü sayar. İkisi
- * çelişirse (biri diğerini geçerse) raporda belirtilir.
+ * Toplam süre/adım/görev sınırları varsayılan kapalıdır. Eşzamanlılık ve
+ * yazma yüzeyi korumaları devam eder; açık kullanıcı sınırları desteklenir.
  */
 export const DEFAULT_BUDGET: BudgetConfig = {
-  maxWallClockMs: 14_400_000,
-  maxIterations: 50,
-  maxConcurrentTasks: 8,
-  maxTasksPerGoal: 200,
+  maxWallClockMs: 0,
+  maxIterations: 0,
+  maxConcurrentTasks: 2,
+  maxTasksPerGoal: 0,
 }
 
 /**
@@ -148,8 +149,82 @@ export interface BudgetState {
 }
 
 export interface TaskBoard {
+  lifecycleRevision?: number
+  completedTaskIDs?: string[]
+  criteria?: CriterionRecord[]
+  checkpoint?: { revision: number; criterionID: string; attemptID: string; evidence: string[] }
   tasks: TaskRecord[]
   budget: BudgetState
+}
+
+export interface AttemptRecord {
+  generation?: number
+  reason?: string
+  verification?: VerificationRecord
+  id: string
+  blockerID: string
+  outcome: "failed" | "progress" | "resolved" | "verified"
+  evidence: string[]
+  at: string
+}
+export interface CriterionRecord {
+  generation?: number
+  verifiedGeneration?: number
+  work?: { id: string; status: TaskStatus; verification?: VerificationRecord; supersededBy?: string; nextWork?: string; evidence?: string[] }[]
+  id: string
+  acceptance: string
+  attempts: AttemptRecord[]
+  verified: boolean
+}
+function newCriterionID(board: TaskBoard, taskID: string): string {
+  let id = `C-${taskID}`, suffix = 1
+  while (board.criteria?.some(c => c.id === id)) id = `C-${taskID}-${suffix++}`
+  return id
+}
+export function blockedCriterion(c: CriterionRecord): boolean {
+  const failures = new Map<string, number>()
+  for (const a of c.attempts) {
+    if (a.outcome === "resolved") failures.set(a.blockerID, 0)
+    if (a.outcome === "failed") failures.set(a.blockerID, (failures.get(a.blockerID) ?? 0) + 1)
+  }
+  return [...failures.values()].some(n => n >= 3)
+}
+/** Legacy completion is not silently promoted to independently verified acceptance. */
+export function migrateBoard(board: TaskBoard): TaskBoard {
+  const copy = structuredClone(board)
+  copy.criteria ??= []
+  copy.completedTaskIDs = [...new Set([...(copy.completedTaskIDs ?? []), ...copy.tasks.filter(t => t.status === "done").map(t => t.id)])]
+  for (const t of copy.tasks) {
+    if (!t.acceptance.trim()) continue
+    t.criterionID ??= `legacy-${t.id}`
+    if (!copy.criteria.some(c => c.id === t.criterionID))
+      copy.criteria.push({ id: t.criterionID, acceptance: t.acceptance, attempts: [], verified: false })
+  }
+  for (const c of copy.criteria) {
+    c.generation ??= 1
+    c.work ??= []
+    for (const t of copy.tasks.filter(t => t.criterionID === c.id)) {
+      const old = c.work.find(w => w.id === t.id)
+      const entry = { id: t.id, status: t.status, verification: t.verification, supersededBy: old?.supersededBy, nextWork:t.nextWork, evidence:t.evidence }
+      if (old) Object.assign(old, entry)
+      else c.work.push(entry)
+    }
+    // Legacy verified flags without generation-bound proof are not sufficient.
+    if (c.verifiedGeneration !== c.generation) c.verified = false
+  }
+  return copy
+}
+export function acceptanceState(board: TaskBoard) {
+  const b = migrateBoard(board)
+  const criteria = b.criteria!
+  const allowed = (t: TaskRecord) => !criteria.some(c => c.id === t.criterionID && blockedCriterion(c))
+  const runnable = b.tasks.filter(t => t.status === "planned" && allowed(t) && t.dependsOn.every(id => b.completedTaskIDs!.includes(id))).map(t => t.id)
+  const active = b.tasks.filter(t => (t.status === "running" || t.status === "verifying") && allowed(t)).map(t => t.id)
+  const waiting = b.tasks.filter(t => active.includes(t.id) && t.workerID).map(t => ({id:t.id,workerID:t.workerID!}))
+  const certifiable = criteria.filter(c => c.acceptance.trim() && !c.verified && !blockedCriterion(c) && c.work!.some(w => !w.supersededBy) && c.work!.filter(w => !w.supersededBy).every(w => w.status === "done" && validVerification(w.verification))).map(c => c.id)
+  const retryEligible = criteria.filter(c => !blockedCriterion(c) && c.work!.some(w => w.status === "failed" && !w.supersededBy)).map(c => c.id)
+  return { done: criteria.length > 0 && criteria.every(c => c.acceptance.trim() && c.verified && c.verifiedGeneration === c.generation) && !b.tasks.some(t => !t.acceptance || !isTerminal(t.status)),
+    actionable: runnable.length + active.length + certifiable.length > 0, runnable, active, waiting, certifiable, retryEligible }
 }
 
 export const EMPTY_BUDGET: BudgetState = { startedAt: 0, iterations: 0, tasks: 0 }
@@ -568,6 +643,7 @@ export function pruneTasks(tasks: TaskRecord[], max: number, keepId?: string): T
     .map((task, index) => ({ task, index }))
     .sort((a, b) => rank(a.task) - rank(b.task) || yasOf(b.task) - yasOf(a.task) || a.index - b.index)
   const kalan = new Set(sirali.slice(0, max).map((entry) => entry.task))
+  for (const task of tasks) if (!isTerminal(task.status) || task.id === keepId) kalan.add(task)
   return tasks.filter((task) => kalan.has(task))
 }
 
@@ -678,6 +754,7 @@ export interface LedgerNo {
 export type LedgerResult = LedgerOk | LedgerNo
 
 export interface TaskUpdateInput {
+  workerID?: string
   verification?: VerificationRecord
   id: string
   status?: string
@@ -689,6 +766,10 @@ export interface TaskUpdateInput {
 }
 
 export interface TaskAddInput {
+  supersedes?: string[]
+  nextWork?: string
+  evidence?: string[]
+  criterionID?: string
   title: string
   role?: string
   dependsOn?: string[]
@@ -742,7 +823,7 @@ export class TaskLedger {
     const config = await loadBudgetConfig(root)
     const configStamp = await stampOf(path.join(root ?? "", ".opencode", CONFIG_FILE))
     const vault = memory.getTaskVault(sessionID)
-    const board: TaskBoard = { tasks: vault.tasks.map((task) => ({ ...task })), budget: { ...vault.budget } }
+    const board: TaskBoard = structuredClone(vault)
     return new TaskLedger(memory, root, sessionID, config, configStamp, board, options.now ?? (() => Date.now()))
   }
 
@@ -756,7 +837,7 @@ export class TaskLedger {
 
   /** Defterin KOPYASI. Çağıran bunu mutasyona uğratamaz. */
   defter(): TaskBoard {
-    return { tasks: this.board.tasks.map((task) => ({ ...task })), budget: { ...this.board.budget } }
+    return structuredClone(this.board)
   }
 
   list(): TaskRecord[] {
@@ -804,15 +885,18 @@ export class TaskLedger {
     await this.refreshConfig()
     await this.memory.syncStore()
     const vault = this.memory.getTaskVault(this.sessionID)
-    this.board = { tasks: vault.tasks.map((task) => ({ ...task })), budget: { ...vault.budget } }
+    this.board = structuredClone(vault)
     this.expectedVault = structuredClone(this.board)
   }
 
   /** Yuvayı diske yazar; önce `MAX_STORED_TASKS` ile budar. */
   private async persist(): Promise<number> {
+    this.board = migrateBoard(this.board)
+    const lifecycle = (b: TaskBoard) => JSON.stringify(b.tasks.map(t => [t.id,t.status,t.acceptance,t.workerID]))
+    if (lifecycle(this.board) !== lifecycle(this.expectedVault)) this.board.lifecycleRevision = (this.expectedVault.lifecycleRevision ?? 0) + 1
     const budanmis = pruneTasks(this.board.tasks, MAX_STORED_TASKS)
     const atilan = this.board.tasks.length - budanmis.length
-    this.board = { tasks: budanmis, budget: { ...this.board.budget } }
+    this.board = { ...this.board, tasks: budanmis, budget: { ...this.board.budget } }
     await this.memory.setTaskVault(this.sessionID, this.board, this.expectedVault)
     this.expectedVault = structuredClone(this.board)
     return atilan
@@ -865,7 +949,21 @@ export class TaskLedger {
     const title = String(input.title ?? "").trim()
     if (!title) return { ok: false, error: "HATA: görev başlığı (title) boş olamaz.", notes, overflow }
 
-    const id = nextTaskId(this.board.tasks)
+    const id = `P${Math.max(this.board.budget.tasks + 1, Number(nextTaskId(this.board.tasks).slice(1)))}`
+    const acceptance = String(input.acceptance ?? "").trim()
+    const migrated = migrateBoard(this.board)
+    const same = migrated.criteria!.find(c => c.acceptance === acceptance && acceptance)
+    if (same && input.criterionID && input.criterionID !== same.id) return {ok:false,error:"CRITERION_ALIAS_COLLISION",notes,overflow}
+    const criterionID = acceptance ? same?.id || input.criterionID?.trim() || newCriterionID(migrated,id) : undefined
+    const criterion = migrated.criteria!.find(c => c.id === criterionID)
+    if (criterion && criterion.acceptance !== acceptance)
+      return { ok: false, error: "IMMUTABLE_ACCEPTANCE", notes, overflow }
+    if (criterion && blockedCriterion(criterion))
+      return { ok: false, error: "CRITERION_BLOCKED: evidence-backed resolution required", notes, overflow }
+    const replacing = criterion?.work?.filter(w => !w.supersededBy && (w.status === "failed" || w.status === "blocked")) ?? []
+    if (replacing.length && (!input.nextWork?.trim() || !input.evidence?.some(e => e.trim()) || replacing.some(w => !input.supersedes?.includes(w.id))))
+      return {ok:false,error:"RETRY_PLAN_REQUIRED: supersedes, nextWork and evidence",notes,overflow}
+    if (input.supersedes?.some(id => !replacing.some(w => w.id === id))) return {ok:false,error:"INVALID_SUPERSESSION",notes,overflow}
     const dependsOn = [...new Set((input.dependsOn ?? []).map((d) => String(d).trim()).filter(Boolean))]
 
     const bilinmeyen = dependsOn.filter((d) => !this.board.tasks.some((task) => task.id === d))
@@ -889,6 +987,8 @@ export class TaskLedger {
     }
 
     const task: TaskRecord = {
+      nextWork: input.nextWork,
+      criterionID,
       id,
       title,
       role: input.role ? String(input.role).trim() : undefined,
@@ -896,7 +996,7 @@ export class TaskLedger {
       writeSurface: (input.writeSurface ?? []).map((p) => String(p).trim()).filter(Boolean),
       acceptance: String(input.acceptance ?? "").trim(),
       status: "planned",
-      evidence: [],
+      evidence: input.evidence?.filter(e => e.trim()) ?? [],
       sessionID: this.sessionID,
       createdAt: new Date(this.now()).toISOString(),
       updatedAt: new Date(this.now()).toISOString(),
@@ -913,7 +1013,13 @@ export class TaskLedger {
       notes.push({ tur: "bilgi", metin: `running IDs: ${this.running().map(t => t.id.replace(/[^\w-]/g, "?").slice(0, 32)).slice(0, 32).join(", ") || "-"}` })
       return { ok: false, error: "BUDGET_EXCEEDED: task not admitted", notes, overflow }
     }
-    this.board = { tasks: [...this.board.tasks, task], budget: bulten.state }
+    if (criterion) {
+      criterion.verified = false
+      criterion.generation = (criterion.generation ?? 1) + 1
+      for (const w of replacing) w.supersededBy = id
+    }
+    this.board = { ...migrated, tasks: [...migrated.tasks, task], budget: bulten.state,
+      criteria: criterion || !criterionID ? migrated.criteria : [...migrated.criteria!, { id: criterionID, acceptance, attempts: [], verified: false }] }
 
     // Çakışma TESPİTİ: yeni görev henüz `planned`, ama AKTIF (`running` VEYA
     // `verifying`) bir görevin yüzeyiyle kesişiyorsa ŞİMDİ görünmelidir —
@@ -961,7 +1067,21 @@ export class TaskLedger {
     const task: TaskRecord = { ...kayitli, dependsOn: [...kayitli.dependsOn], writeSurface: [...kayitli.writeSurface], evidence: [...kayitli.evidence] }
     /** Denetimler geçilince deftere bağla. */
     const bagla = (budget: BudgetState): void => {
-      this.board = { tasks: this.board.tasks.map((t) => (t.id === id ? task : t)), budget }
+      if (task.acceptance && !kayitli.acceptance && task.criterionID) {
+        const draft = this.board.criteria?.find(c => c.id === task.criterionID)
+        if (draft && !draft.acceptance) {
+          draft.acceptance = task.acceptance
+          draft.generation = (draft.generation ?? 1) + 1
+          draft.verified = false
+        }
+      }
+      if (task.acceptance && !task.criterionID) {
+        this.board = migrateBoard(this.board)
+        const same = this.board.criteria!.find(c => c.acceptance === task.acceptance)
+        task.criterionID = same?.id ?? newCriterionID(this.board,task.id)
+        if (same) { same.generation = (same.generation ?? 1) + 1; same.verified = false }
+      }
+      this.board = { ...this.board, tasks: this.board.tasks.map((t) => (t.id === id ? task : t)), budget }
     }
 
     if (input.verification !== undefined) {
@@ -984,7 +1104,19 @@ export class TaskLedger {
     }
     if (input.title !== undefined && String(input.title).trim()) task.title = String(input.title).trim()
     if (input.role !== undefined) task.role = String(input.role).trim() || undefined
-    if (input.acceptance !== undefined) task.acceptance = String(input.acceptance).trim()
+    if (input.acceptance !== undefined && String(input.acceptance).trim() !== task.acceptance) {
+      if (task.acceptance || task.status !== "planned") return { ok: false, error: "IMMUTABLE_ACCEPTANCE", notes, overflow }
+      task.acceptance = String(input.acceptance).trim()
+      const linked = this.board.criteria?.find(c => c.id === task.criterionID)
+      if (linked?.acceptance && linked.acceptance !== task.acceptance) return {ok:false,error:"IMMUTABLE_ACCEPTANCE",notes,overflow}
+      if (linked && this.board.criteria?.some(c => c.id !== linked.id && c.acceptance === task.acceptance)) return {ok:false,error:"CRITERION_ALIAS_COLLISION",notes,overflow}
+      if (this.board.criteria?.some(c => c.acceptance === task.acceptance && blockedCriterion(c))) return {ok:false,error:"CRITERION_BLOCKED",notes,overflow}
+      if (this.board.criteria?.some(c => c.acceptance === task.acceptance && c.work?.some(w => !w.supersededBy && (w.status === "failed" || w.status === "blocked")))) return {ok:false,error:"RETRY_PLAN_REQUIRED: create an explicit replacement task",notes,overflow}
+    }
+    if (input.workerID !== undefined) {
+      if (task.workerID && task.workerID !== input.workerID) return {ok:false,error:"IMMUTABLE_WORKER",notes,overflow}
+      task.workerID = input.workerID.trim() || undefined
+    }
     if (input.writeSurface !== undefined) {
       // ÖLÇÜLEN KUSUR (iki katmanlı):
       //  1. Denetim UZUNLUKTU. `[a,b] → [c,d]` "daha az yol" sayılmadığı için
@@ -1042,6 +1174,10 @@ export class TaskLedger {
       }
     }
     const hedef = input.status
+    if (!task.acceptance) return {ok:false,error:"ACCEPTANCE_REQUIRED: bind draft acceptance before leaving planned",notes,overflow}
+    const criterion = migrateBoard(this.board).criteria!.find(c => c.id === (task.criterionID ?? `legacy-${task.id}`))
+    if ((hedef === "running" || hedef === "done") && criterion && blockedCriterion(criterion))
+      return { ok: false, error: "CRITERION_BLOCKED", notes, overflow }
     if (!canTransition(task.status, hedef)) {
       const yollar = TASK_TRANSITIONS[task.status] ?? []
       return {
@@ -1081,10 +1217,11 @@ export class TaskLedger {
     }
 
     if (hedef === "running") {
+      if (!task.acceptance) return {ok:false,error:"ACCEPTANCE_REQUIRED: bind draft acceptance before starting",notes,overflow}
       // BAĞIMLILIK SIRASI: bitmemiş bağımlılık varsa başlanmaz.
       const eksik = task.dependsOn.filter((d) => {
         const bagimli = this.board.tasks.find((t) => t.id === d)
-        return !bagimli || bagimli.status !== "done"
+        return (!bagimli || bagimli.status !== "done") && !this.board.completedTaskIDs?.includes(d)
       })
       if (eksik.length > 0) {
         const ayrinti = eksik
@@ -1141,6 +1278,35 @@ export class TaskLedger {
   }
 
   /** Tek ekranlık özet (`orchestra_status` ve `/standup`'ın veri kaynağı). */
+  async recordAttempt(criterionID: string, attempt: Omit<AttemptRecord, "at">): Promise<LedgerResult> {
+    await this.sync()
+    const board = migrateBoard(this.board)
+    const c = board.criteria!.find(c => c.id === criterionID)
+    const no = (error: string): LedgerNo => ({ ok: false, error, notes: [], overflow: [] })
+    if (!c) return no("UNKNOWN_CRITERION")
+    if (!attempt.id?.trim() || !attempt.blockerID?.trim() || !["failed", "progress", "resolved", "verified"].includes(attempt.outcome) ||
+      !Array.isArray(attempt.evidence) || !attempt.evidence.length || attempt.evidence.some(e => typeof e !== "string" || !e.trim())) return no("ATTEMPT_EVIDENCE_REQUIRED")
+    if (board.criteria!.some(c => c.attempts.some(a => a.id === attempt.id))) return no("DUPLICATE_ATTEMPT")
+    if (attempt.outcome === "progress" && c.attempts.some(a => a.outcome === "progress" && JSON.stringify(a.evidence) === JSON.stringify(attempt.evidence))) return no("DUPLICATE_PROGRESS_EVIDENCE")
+    if (blockedCriterion(c) && attempt.outcome !== "resolved") return no("CRITERION_BLOCKED")
+    if (attempt.outcome === "resolved") {
+      const failures = c.attempts.filter(a => a.blockerID === attempt.blockerID && a.outcome === "failed")
+      if (!failures.length) return no("UNKNOWN_BLOCKER")
+      if (!attempt.reason?.trim() || !validVerification(attempt.verification) || !attempt.evidence.includes(attempt.verification.artifact) || attempt.evidence.some(e => failures.some(a => a.evidence.includes(e)))) return no("RESOLUTION_CHECK_REQUIRED: distinct evidence including successful check artifact, verification and causal reason")
+    }
+    if (attempt.outcome === "verified" && !acceptanceState(board).certifiable.includes(c.id)) return no("VERIFICATION_REQUIRED: all current contributors must succeed or be explicitly superseded")
+    c.attempts.push({ ...structuredClone(attempt), generation:c.generation, at: new Date(this.now()).toISOString() })
+    c.verified = attempt.outcome === "verified"
+    c.verifiedGeneration = c.verified ? c.generation : undefined
+    if (blockedCriterion(c)) for (const t of board.tasks) {
+      if (t.criterionID === c.id && !isTerminal(t.status)) t.status = "blocked"
+    }
+    board.checkpoint = { revision: (board.checkpoint?.revision ?? 0) + 1, criterionID, attemptID: attempt.id, evidence: [...attempt.evidence] }
+    this.board = board
+    const dropped = await this.persist()
+    return { ok: true, notes: [{ tur: "bilgi", metin: `Criterion ${c.id}: ${c.verified ? "verified" : blockedCriterion(c) ? "blocked; independent criteria may continue" : "actionable"}; checkpoint ${board.checkpoint.revision}` }], overflow: [], dropped }
+  }
+
   status(): string[] {
     const bulten = this.bulten()
     const say = (durum: TaskStatus): number => this.board.tasks.filter((t) => t.status === durum).length
@@ -1148,6 +1314,8 @@ export class TaskLedger {
     const dakika = (ms: number): string => `${Math.round(ms / 60000)} dk`
     const cizgiler: string[] = [
       `ORCHESTRA GÖREV DEFTERİ — oturum ${this.sessionID}`,
+      `- Checkpoint: ${JSON.stringify(this.board.checkpoint ?? null)}`,
+      ...migrateBoard(this.board).criteria!.map(c => `- Criterion ${c.id}: ${c.verified ? "verified" : blockedCriterion(c) ? "blocked" : "actionable"}; attempts=${c.attempts.length}`),
       `- Toplam görev: ${this.board.tasks.length} (koşan ${say("running")}, doğrulanıyor ${say("verifying")}, bitti ${say("done")}, engelli ${say("blocked")}, başarısız ${say("failed")}, planlı ${say("planned")})`,
       `- Bütçe: duvar saati ${dakika(gecen)}/${dakika(this.config.maxWallClockMs)} · iş adımı ${this.board.budget.iterations}/${this.config.maxIterations} · eşzamanlı ${say("running")}/${this.config.maxConcurrentTasks} · görev ${this.board.budget.tasks}/${this.config.maxTasksPerGoal} · running slots ${say("running")}/${this.config.maxConcurrentTasks} · verifying locks ${say("verifying")}`,
     ]

@@ -219,7 +219,7 @@ Sohbette:
 ```
 /orchestrate <görev>          # tam akış: brifing → bölüm → paralel → doğrulama → ders
 /auto <görev>                 # aynı akış, her turda rapor vererek otonom ilerler
-/loop <hedef> --max=10        # duraklatılabilir, rapor tabanlı otonom döngü
+/loop <hedef>                 # ilerleme sürdükçe çalışan, duraklatılabilir döngü
 /loop stop                    # döngüyü o noktada durdur
 /loop status                  # nerede olduğunu göster
 /recall <konu>                # bu konuda hangi dersler var?
@@ -379,8 +379,9 @@ Modelin disiplinine bırakılsaydı yakalama güvenilmez olurdu.
 | `orchestra_task` | Görev defteri: iş paketi ekle, durumunu ilerlet, kanıt ekle. **Yalnızca mimar.** |
 | `orchestra_status` | Defter + bütçe tek ekranda: kim ne yapıyor, hangi yüzeyler çakışıyor. |
 
-> **`orchestra_report` neden mimara özel?** Rapor TEK yuva olarak tutulur
-> (`state.json → report`) ve `/loop` onu okuyarak döngüyü durdurur. Araç global
+> **`orchestra_report` neden mimara özel?** Rapor oturum kapsamında tutulur
+> (`state.json → reports[sessionID]`); `runID` ve iterasyon tazeliği denetlenir.
+> `/loop` raporu kalıcı görev defteriyle birlikte değerlendirir. Araç global
 > olduğu için, bir alt ajan `status: "done"` bildirseydi otonom iş tamamlanmadan kapanırdı.
 > İki katmanlı koruma var:
 > 1. **İzin:** her `crew/*` rolünün frontmatter'ında `orchestra_report → deny`. Araç
@@ -416,15 +417,15 @@ Modelin disiplinine bırakılsaydı yakalama güvenilmez olurdu.
 uyması beklenen metindi (`skills/dispatch/SKILL.md`); kod tek satırını görmüyordu.
 Artık:
 
-- **Çakışan yüzey görünür.** İki `running` görev aynı dosyaya dokunuyorsa sistem
-  bildirir. Engellemez — karar mimarın — ama **göremez artık**.
+- **Çakışan yüzey görünür ve autonomous kipte engellenir.** `running` veya `verifying`
+  işin yüzeyini ihlal edecek yeni çalışma reddedilir; advisory kip yalnız uyarır.
 - **Kanıtsız "bitti" reddedilir.** `evidence` boşsa `done` kabul edilmez. Bu,
   "yaptım" ile "çalıştığını kanıtladım" ayrımını sözlüğe değil koda bağlar.
 - **Döngüsel bağımlılık yakalanır.** `A → B → A` tespit edilip reddedilir.
 - **Geçersiz geçiş reddedilir.** `planned`dan `done`a atlamak mümkün değildir.
 
-> Yüzey kesişimi **tespit** yapar, engellemez. Çakışan iki işi seri yapmak da
-> bazen doğru karardır; sistem kararı vermez, kararın görünür olmasını sağlar.
+> Çakışan işleri sıraya al veya ayrı worktree kullan. Admission reddini atlayarak
+> işçi başlatma; beyan edilen yüzeylerin doğruluğu orkestratörün sorumluluğudur.
 
 ## Bütçe
 
@@ -432,16 +433,16 @@ Artık:
 
 ```jsonc
 "budget": {
-  "maxWallClockMs": 14400000,   // 4 saat
-  "maxIterations": 50,
-  "maxConcurrentTasks": 8,
-  "maxTasksPerGoal": 200
+  "maxWallClockMs": 0,   // toplam süre sınırsız
+  "maxIterations": 0,
+  "maxConcurrentTasks": 2,
+  "maxTasksPerGoal": 0
 }
 ```
 
-Sınır aşılınca `orchestra_status` **aşım** gösterir ve `UYARI` notu düşer. Bütçe
-kendisi durdurmaz — durduran `/loop`'tur; defter ölçer, döngü keser. Bu ayrım
-bilinçlidir: ölçüm ve karar farklı katmanlarda kalır.
+`orchestra_status` yapılandırılmış sınır aşımını gösterir. Autonomous kipte yeni
+görev/çalışma admission'ı aşım halinde reddedilir; advisory kip uyarıyla devam eder.
+Varsayılan toplam kotalar kapalıdır; eşzamanlı çalışma ve yazma yüzeyi denetimi sürer.
 
 ## Sıfırlamak / düzenlemek
 
@@ -481,20 +482,25 @@ Bu bir Orchestra kusuru değildir; yalnızca ortamın mevcut halinin notu.
 
 ## Otonom döngü
 
-`/loop <hedef> --max=N` her iterasyonda oturuma bir tur gönderir, tur bitince
+`/loop <hedef>` her iterasyonda oturuma bir tur gönderir, tur bitince
 `orchestra_report` çıktısını okur ve ona göre karar verir.
+Yalnız açıkça sınırlandırılmış bir deney istendiğinde `--max=N` eklenebilir.
 
 | Rapor | Anlamı |
 | --- | --- |
-| `continue` + `next` + kanıt | Gerçek ilerleme var. |
+| `continue` + `next` + defter referansı/kanıt | Gerçek ilerleme, yapılabilir iş veya sonucu beklenen çalışan iş var. |
 | `done` + kanıt | Kabul kriterleri karşılandı. |
-| `blocked` + engeller | Karar gerekiyor; döngü durur, insana sorar. |
+| `blocked` + engeller | Bağımsız yapılabilir iş kalmadı; gereken karar veya dış girdi bildirilir. |
 
-Döngü şu durumlarda **kendiliğinden durur**: `done`, `blocked`, iterasyon sınırı, tek bir
-iterasyonun zaman aşımı (20 dk), 2 ardışık turda rapor gelmemesi, ya da 2 iterasyondur
-aynı sonuç/kanıtla dönmesi. Yani takılan bir döngü sonsuza kadar yakmaz.
+Döngü kalıcı kabul defterini izler: tüm kriterler doğrulanınca `done`, yapılabilir iş
+kalmadığında `blocked`. Aynı blockerID için üç tamamlanmış başarısız çözüm denemesi
+yalnız ilgili kriteri durdurur; bağımsız işler sürer. Varsayılan toplam sınırlar sıfırdır
+(sınırsız); açık sınırlar desteklenir. Tek çağrı zaman aşımı teknik arızadır.
 
-Rap vermezsen döngü seni bekler ve iki tur sonra kendini durdurur. Bu bir hata değil, supap.
+Eksik veya bayat rapor ve yanıt vermeyen çağrı, teknik protokol arızası olarak bildirilir;
+başarısız çözüm denemesi sayılmaz. Planlama ve çalışan işçiyi bekleme de çözüm denemesi
+değildir. Kalıcı kabul/engel kimlikleri, doğrulama ve yeniden başlama sözleşmesi için
+[ilerleme protokolüne](PROGRESS-ORCHESTRATION.md) bak.
 
 Otonomi, onaylanmamış yıkıcı işlemler için kullanılmaz: üretim dağıtımı, veri silme, kimlik
 yazma, uzaktaki geçmişi ezma gibi işlerde `blocked` durur. `opencode.jsonc` bunları tüm roller

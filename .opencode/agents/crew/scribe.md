@@ -3,7 +3,6 @@ description: Katiip. Dokümantasyon, rapor, teslim metni ve changelog üretir. Y
 mode: subagent
 model: opencode/space-bunny-free
 color: "#94a3b8"
-steps: 40
 permissions:
   - action: subagent
     resource: "*"
