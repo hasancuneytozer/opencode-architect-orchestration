@@ -31,10 +31,32 @@ import {
   makeServerOptions,
   parseBasicAuth,
   readContract,
+  serverNodeInfo,
 } from "./server.mjs"
+import { report } from "./local.mjs"
 
 const EXPECTED = { username: DEFAULT_AUTH_USERNAME, password: "s3cret-pass" }
 const header = (username, password) => `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`
+
+test("server Node identity comes from the server process", () => {
+  assert.deepEqual(serverNodeInfo(), { nodeVersion: process.versions.node, nodeExecutable: process.execPath })
+})
+
+test("status separates caller and reported server Node; legacy servers remain unknown", () => {
+  const paths = { root: "test-root", runtime: "test-runtime", projectMemory: "test-memory", serverScript: "server.mjs" }
+  const legacyNode = "caller legacy value"
+  const serverInfo = { nodeVersion: "24.22.1", nodeExecutable: "/runtime/bin/node" }
+  const result = report({ paths }, { running: true, node: legacyNode, info: serverInfo })
+  assert.equal(result.node, legacyNode)
+  assert.deepEqual(result.callerNode, { version: process.versions.node, executable: process.execPath })
+  assert.deepEqual(result.serverNode, { version: "24.22.1", executable: "/runtime/bin/node" })
+  for (const info of [null, {}, { nodeVersion: "", nodeExecutable: 42 }]) {
+    const old = report({ paths }, { running: true, node: legacyNode, info })
+    assert.deepEqual(old.serverNode, { version: null, executable: null })
+    assert.equal(old.node, legacyNode)
+  }
+  assert.deepEqual(report({ paths }, { running: false }).serverNode, { version: null, executable: null })
+})
 
 /** Ownership-clean env whose runtime dir lives under the cwd but is never created here. */
 const cleanEnv = () => {

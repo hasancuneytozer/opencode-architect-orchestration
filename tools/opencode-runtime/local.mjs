@@ -253,7 +253,7 @@ function patchStatus(runtime) {
 }
 
 /** `status` ciktisi. Parola/token/nonce YAZILMAZ; yalnizca "yetkilendirme var mi" bilgisi. */
-function report(ctx, { state = null, info = null, running, node = null, note = null, extra = {} } = {}) {
+export function report(ctx, { state = null, info = null, running, node = null, note = null, extra = {} } = {}) {
   const paths = ctx.paths
   const versions = readVersions(paths)
   return {
@@ -270,7 +270,13 @@ function report(ctx, { state = null, info = null, running, node = null, note = n
     memoryPath: paths.projectMemory,
     runtimeDir: paths.runtime,
     serverScript: paths.serverScript,
+    // Legacy node: status passes the caller; start passes the selected server executable.
     node,
+    callerNode: { version: process.versions.node, executable: process.execPath },
+    serverNode: {
+      version: typeof info?.nodeVersion === "string" && info.nodeVersion ? info.nodeVersion : null,
+      executable: typeof info?.nodeExecutable === "string" && info.nodeExecutable ? info.nodeExecutable : null,
+    },
     authConfigured: Boolean(state?.password),
     ...(note ? { note } : {}),
     ...extra,
@@ -571,6 +577,7 @@ async function cmdStatus(ctx) {
     info = await infoRequest(state)
     validateIdentity(state, info, ctx.paths.root, state.coreSha256 ?? PATCHED_SHA256)
   } catch (err) {
+    info = null // Do not report fields from an identity that failed validation.
     note = `kimlik dogrulanamadi: ${err.message}`
   }
   emit(

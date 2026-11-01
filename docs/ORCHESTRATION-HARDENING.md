@@ -18,6 +18,12 @@ A done task requires acceptance/evidence plus `verification: {commit, command, e
 
 Task persistence compares the saved session snapshot under the existing memory lock. A stale writer receives `TASK_VAULT_CONFLICT`; reload and reconsider the mutation. Do not blindly retry an old update.
 
+## Memory maintenance policy
+
+The current memory ceiling is 800; the task memory block recalls up to 6 entries and includes up to 3 pending lesson signals. These bounds are not a guarantee of semantic quality. As a recommended operating policy, the architect should review memory after every 20 new permanent lessons or the second recurrence of the same root cause. This is not automatically enforced; an automatic maintenance counter is out of scope for this round.
+
+Prove duplicates before consolidating them into one actionable rule; use `supersedes` or `forget` to retire prior entries with a reason. Do not turn one-off incidents into lessons: preserve the `AGENTS.md` threshold of 3. Personal memory is not committed to Git, and there is no automatic semantic deletion.
+
 ## Shared engine updates
 
 `node scripts/sync-shared.mjs --target <existing-project>` is dry-run by default. Review its plan before adding `--apply`. Source hashes come from `docs/orchestra-shared.json`; target baseline hashes live in `docs/orchestra-shared-state.json`. An untracked/divergent target is a conflict; the whole preflight stops before writing. Existing updated files are backed up under `.orchestra-sync-backups/`.
@@ -31,6 +37,8 @@ Task/iteration/concurrency limits bound work, not ChatGPT weekly usage. This cha
 The repository's optional patched runtime is pinned to 2.0.18. Installed CLI 2.1.4 must not be treated as equivalent. Its default discovery commands encountered an occupied service port, and debug agents rejects standalone routing flags. An isolated 2.1.4 server on a separate port answered authenticated agent/plugin queries with empty lists for both project locations; this is NOT a successful role/plugin discovery check. Existing user services were left untouched. No paid or free provider inference was run for this release.
 
 ## Verification
+
+For scope verification, compare `git status` and file hashes against the initial baseline. A previously existing untracked file is not automatically outside the task's scope; establish whether it changed rather than excluding it solely because it was untracked.
 
 Both repositories: typecheck, full existing test suites, new hardening tests (5), shared updater tests (3), and local-runtime tests (48 each) pass. Library additionally: bounded-stream tests (4), isolated HTTP security tests (2), dist smoke (9), README contract checks (48), and build pass. Security tests use a fake adapter with real local HTTP; they do not demonstrate provider/OAuth or interactive TUI behavior. The opt-in `test:example:live` remains a real-service integration check, not part of offline tests.
 

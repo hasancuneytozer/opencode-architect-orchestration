@@ -131,6 +131,12 @@ tutulur ve günlüğe yazılmaz.
 `memoryPath`, `runtimeDir`, `node`, `authConfigured` (evet/hayır). **Parola, token ve nonce
 değeri hiçbir çıktıya yazılmaz** — sırlar değil, yalnızca işaretleri raporlanır.
 
+`callerNode`, komutu çalıştıran Node'u; `serverNode`, çalışan sunucunun Node'unu yapılandırılmış
+`{ version, executable }` alanlarıyla gösterir. Eski sunucu bu bilgiyi sağlamıyorsa veya sunucu
+çalışmıyorsa `serverNode` alanları `null` olur. Eski `node` alanı uyumluluk içindir: `status`'ta
+çağıranı, `start` çıktısında seçilen sunucu çalıştırılabilir dosyasını belirtir. Bu yeni bilgiyi
+almak için çalışan sunucu otomatik olarak yeniden başlatılmaz.
+
 Bağlantı parolası git-ignored `<runtime>/state/instance.json` içindedir. Windows'ta `0o600`
 özel ACL sağlamaz; depoyu okuyabilen yerel hesaplar bu dosyayı da okuyabilir. Paylaşılan
 makinelerde runtime dizininin erişimini işletim sistemi izinleriyle sınırlandırın.

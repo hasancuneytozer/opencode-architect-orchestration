@@ -93,6 +93,11 @@ const MAX_SHUTDOWN_BODY = 4_096
  */
 export const CONFIG_ENV = "OPENCODE_CONFIG_CONTENT"
 
+/** Values reported by the actual server process, not the controller. */
+export function serverNodeInfo() {
+  return { nodeVersion: process.versions.node, nodeExecutable: process.execPath }
+}
+
 class BootError extends Error {}
 
 // ------------------------------------------------------------------ pure utils
@@ -463,6 +468,7 @@ export async function main(env = process.env) {
     serverVersion: contract.serverVersion,
     sdkVersion: contract.sdkVersion,
     memoryDir: contract.memoryDir,
+    ...serverNodeInfo(),
   }
 
   // Import last: this is the first moment the runtime's global providers can execute.
