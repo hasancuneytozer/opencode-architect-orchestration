@@ -29,6 +29,8 @@ retry work. A retry must explicitly name failed/blocked contributor task IDs in
 `supersedes`, describe `nextWork`, and supply evidence. Retry eligibility is not
 actionability: a terminal failed task is not automatically scheduled again.
 Externally blocked tasks genuinely stop their path; independent work continues.
+Downstream dependencies follow explicit replacement chains, including pruned
+contributors; a replacement must finish before dependent work can start.
 
 Each newly contributing task advances the criterion's work generation and
 invalidates old certification. Every nonsuperseded contributor must be done
@@ -43,7 +45,10 @@ semantic blocker identity; arbitrary prose is never used as a fingerprint.
 Criteria, attempts and checkpoint live in the existing TaskBoard/TaskVault.
 Memory's state lock, atomic write and expected-snapshot CAS serialize changes.
 Task pruning and session slot eviction do not remove acceptance history.
-Legacy tasks acquire stable `legacy-<taskID>` criteria; historical done claims
+Legacy tasks acquire stable `legacy-<taskID>` criteria, sharing one identity for
+exactly equal acceptance. Legacy active records lacking acceptance may bind it
+once or explicitly leave active status; new drafts still cannot start unbound.
+Historical done claims
 are not silently upgraded to verified acceptance. Context injection and loop
 prompts expose a short sanitized checkpoint, with the full ledger available
 through `orchestra_status({criterionID, offset:0, limit:10})` (maximum page size

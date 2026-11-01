@@ -57,6 +57,8 @@ export function validVerification(v: unknown): v is VerificationRecord {
     [r.command,r.artifact,r.reviewer].every(s => typeof s === "string" && s.trim().length > 0 && s.length <= 4096)
 }
 export interface TaskRecord {
+  /** Recovery marker for pre-progress records that started without acceptance. */
+  legacyUnbound?: boolean
   nextWork?: string
   workerID?: string
   criterionID?: string
@@ -195,8 +197,11 @@ export function migrateBoard(board: TaskBoard): TaskBoard {
   copy.criteria ??= []
   copy.completedTaskIDs = [...new Set([...(copy.completedTaskIDs ?? []), ...copy.tasks.filter(t => t.status === "done").map(t => t.id)])]
   for (const t of copy.tasks) {
-    if (!t.acceptance.trim()) continue
-    t.criterionID ??= `legacy-${t.id}`
+    if (!t.acceptance.trim()) {
+      if (t.status !== "planned") t.legacyUnbound = true
+      continue
+    }
+    t.criterionID ??= copy.criteria.find(c => c.acceptance.trim() === t.acceptance.trim())?.id ?? `legacy-${t.id}`
     if (!copy.criteria.some(c => c.id === t.criterionID))
       copy.criteria.push({ id: t.criterionID, acceptance: t.acceptance, attempts: [], verified: false })
   }
@@ -214,11 +219,22 @@ export function migrateBoard(board: TaskBoard): TaskBoard {
   }
   return copy
 }
+/** Resolve explicit replacement chains, including contributors whose tasks were pruned. */
+export function dependencySatisfied(board: TaskBoard, id: string, seen = new Set<string>()): boolean {
+  if (seen.has(id)) return false
+  seen.add(id)
+  const work = board.criteria?.flatMap(c => c.work ?? []).find(w => w.id === id)
+  if (work?.supersededBy) return dependencySatisfied(board, work.supersededBy, seen)
+  const task = board.tasks.find(t => t.id === id)
+  if (task) return task.status === "done"
+  if (work) return work.status === "done"
+  return board.completedTaskIDs?.includes(id) ?? false
+}
 export function acceptanceState(board: TaskBoard) {
   const b = migrateBoard(board)
   const criteria = b.criteria!
   const allowed = (t: TaskRecord) => !criteria.some(c => c.id === t.criterionID && blockedCriterion(c))
-  const runnable = b.tasks.filter(t => t.status === "planned" && allowed(t) && t.dependsOn.every(id => b.completedTaskIDs!.includes(id))).map(t => t.id)
+  const runnable = b.tasks.filter(t => t.status === "planned" && allowed(t) && t.dependsOn.every(id => dependencySatisfied(b, id))).map(t => t.id)
   const active = b.tasks.filter(t => (t.status === "running" || t.status === "verifying") && allowed(t)).map(t => t.id)
   const waiting = b.tasks.filter(t => active.includes(t.id) && t.workerID).map(t => ({id:t.id,workerID:t.workerID!}))
   const certifiable = criteria.filter(c => c.acceptance.trim() && !c.verified && !blockedCriterion(c) && c.work!.some(w => !w.supersededBy) && c.work!.filter(w => !w.supersededBy).every(w => w.status === "done" && validVerification(w.verification))).map(c => c.id)
@@ -808,7 +824,7 @@ export class TaskLedger {
     this.sessionID = sessionID
     this.config = config
     this.configStamp = configStamp
-    this.board = board
+    this.board = migrateBoard(board)
     this.expectedVault = structuredClone(board)
     this.now = now
   }
@@ -885,8 +901,8 @@ export class TaskLedger {
     await this.refreshConfig()
     await this.memory.syncStore()
     const vault = this.memory.getTaskVault(this.sessionID)
-    this.board = structuredClone(vault)
-    this.expectedVault = structuredClone(this.board)
+    this.board = migrateBoard(vault)
+    this.expectedVault = structuredClone(vault)
   }
 
   /** Yuvayı diske yazar; önce `MAX_STORED_TASKS` ile budar. */
@@ -975,6 +991,10 @@ export class TaskLedger {
     }
 
     const cizge = dependencyGraph(this.board.tasks)
+    for (const c of migrated.criteria!) for (const work of c.work ?? []) {
+      if (work.supersededBy) cizge[work.id] = [work.supersededBy]
+    }
+    for (const work of replacing) cizge[work.id] = [id]
     cizge[id] = dependsOn
     const dongu = detectCycle(cizge, id)
     if (dongu) {
@@ -1105,8 +1125,9 @@ export class TaskLedger {
     if (input.title !== undefined && String(input.title).trim()) task.title = String(input.title).trim()
     if (input.role !== undefined) task.role = String(input.role).trim() || undefined
     if (input.acceptance !== undefined && String(input.acceptance).trim() !== task.acceptance) {
-      if (task.acceptance || task.status !== "planned") return { ok: false, error: "IMMUTABLE_ACCEPTANCE", notes, overflow }
+      if (task.acceptance || (task.status !== "planned" && !task.legacyUnbound)) return { ok: false, error: "IMMUTABLE_ACCEPTANCE", notes, overflow }
       task.acceptance = String(input.acceptance).trim()
+      if (task.acceptance) delete task.legacyUnbound
       const linked = this.board.criteria?.find(c => c.id === task.criterionID)
       if (linked?.acceptance && linked.acceptance !== task.acceptance) return {ok:false,error:"IMMUTABLE_ACCEPTANCE",notes,overflow}
       if (linked && this.board.criteria?.some(c => c.id !== linked.id && c.acceptance === task.acceptance)) return {ok:false,error:"CRITERION_ALIAS_COLLISION",notes,overflow}
@@ -1174,7 +1195,7 @@ export class TaskLedger {
       }
     }
     const hedef = input.status
-    if (!task.acceptance) return {ok:false,error:"ACCEPTANCE_REQUIRED: bind draft acceptance before leaving planned",notes,overflow}
+    if (!task.acceptance && !(task.legacyUnbound && (hedef === "failed" || hedef === "blocked"))) return {ok:false,error:"ACCEPTANCE_REQUIRED: bind draft acceptance before leaving planned",notes,overflow}
     const criterion = migrateBoard(this.board).criteria!.find(c => c.id === (task.criterionID ?? `legacy-${task.id}`))
     if ((hedef === "running" || hedef === "done") && criterion && blockedCriterion(criterion))
       return { ok: false, error: "CRITERION_BLOCKED", notes, overflow }
@@ -1219,10 +1240,7 @@ export class TaskLedger {
     if (hedef === "running") {
       if (!task.acceptance) return {ok:false,error:"ACCEPTANCE_REQUIRED: bind draft acceptance before starting",notes,overflow}
       // BAĞIMLILIK SIRASI: bitmemiş bağımlılık varsa başlanmaz.
-      const eksik = task.dependsOn.filter((d) => {
-        const bagimli = this.board.tasks.find((t) => t.id === d)
-        return (!bagimli || bagimli.status !== "done") && !this.board.completedTaskIDs?.includes(d)
-      })
+      const eksik = task.dependsOn.filter((d) => !dependencySatisfied(this.board, d))
       if (eksik.length > 0) {
         const ayrinti = eksik
           .map((d) => {

@@ -50,6 +50,14 @@ işçi henüz sonuç vermediyse tamamlanmış deneme veya ilerleme kanıtı uydu
   Kalan kabul kriterleri için ilerlenebilir yol yoksa genel `blocked` raporla.
 - **Tekrarı kaydet.** Aynı kalıcı `criterionID` / `blockerID` için üçüncü tamamlanmış başarısız çözüm denemesinde yalnız ilgili kriter durur. Model turu, rapor metni veya yeni görev kimliği sayacı sıfırlamaz. Bağımsız işler sürer; ancak yapılabilir iş kalmadığında genel `blocked` raporlanır.
 - `orchestra_task` ile `criterionID` ve `attempt: {id, blockerID, outcome, evidence}` yaz. Outcome: `failed`, `progress`, `resolved`, `verified`. Kanıt zorunludur. Çözüm açıkça `resolved` olarak kanıtlanır; geçmiş korunur. Tüm kriterler `verified` ve canlı görev kalmamışsa `done` ver.
+- `resolved` kaydına nedensel `reason`, başarılı `verification` ve başarısız denemeden
+  farklı doğrulama kanıtı ekle. Aynı hata çıktısını çözüm diye yeniden sunma.
+- Yeniden deneme paketinde değiştirdiğin terminal işi `supersedes` ile belirt;
+  `nextWork` ve kanıtla somut yeni yaklaşımı açıkla. Eski başarısızlığı silme.
+- Arka plan işçisinin gerçek oturumunu görevde `workerID` olarak kaydet. Sonucunu
+  beklerken raporda `waitingFor: [workerID]` kullan; sürekli yeni model turu üretme.
+- Context özetlendikten sonra `orchestra_status({criterionID, offset: 0, limit: 10})`
+  ile deneme, engel ve doğrulama geçmişini geri oku. Ayrıntı: `docs/PROGRESS-ORCHESTRATION.md`.
 
 ## Kapanış
 

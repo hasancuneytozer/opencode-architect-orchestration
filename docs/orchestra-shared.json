@@ -3,11 +3,11 @@
   "scope": "shared engine only; not a full project installer",
   "files": {
     ".opencode/plugins/orchestra/loop.ts": "3fcae0bfdb7076be0c09ca4e3afec8872bb63bba67437cfd1a5f811159261b18",
-    ".opencode/plugins/orchestra/tasks.ts": "a40dd2afe95b5aacd0f60d89e7036ed49a2b136443e1a7106192cdfd353733aa",
+    ".opencode/plugins/orchestra/tasks.ts": "d1abd8e3b0c9c5bbd4ae7082c623ff72c60c2d9e9fa08068ebfcd98040139d01",
     ".opencode/plugins/orchestra/tools.ts": "87b9747ae8d3dcbf2da953109581e2f077e6e73c70f9efbaa92273f30b581b44",
     ".opencode/plugins/orchestra/memory.ts": "85472cf88be1cd1d875a112ee8e31b71ff83eeff655967936aaf97841c10ec72",
     ".opencode/plugins/orchestra/index.ts": "9312f3f10f8a707692035c4826cda36c270e335b18ff41e3bac6dc78a9d9ec44",
-    ".opencode/scripts/progress.test.mjs": "04ca7ff507a76df51fec863325fd0e5adcd7387de7f9d6f381430918f54e1750",
+    ".opencode/scripts/progress.test.mjs": "902ae3dffdd4b88985f4d3522ed5ac42add6ee9db0b610bd3c1acf9df0b23b4a",
     ".opencode/scripts/hardening.test.mjs": "e053a9df68ea097c416d232211c55e65585db8535f59bc663224d9189fd062db",
     ".opencode/scripts/loop.test.mjs": "043169efb384fdedbef03703d3e9ab81fdb19b081e7fcbd361da763631754c8d",
     ".opencode/scripts/tasks.test.mjs": "d3c3a4e4a3a0ca5ba86278013b1fb141112b13c9fbe89cd58d6f9d6225b0ea2a",
