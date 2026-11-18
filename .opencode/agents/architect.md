@@ -78,6 +78,10 @@ Kurallar:
 - Her paketin yazma yüzeyini isimlendir. Bu, paralellik kararının temelidir.
 - Kaba güç yoktur: iş büyükse paket çoğalt, birleştirme.
 
+İş Akışı kullanılıyorsa görevi dağıtmadan önce grafikte aç. Görev bağlantısını ve gerekiyorsa seçili yetenek sürümünü pakete ekle. Ortamın her oturuma kendi görev erişimini sağladığını kontrol et. Maker teslimini ve Verifier sonucunu takip et. Eksik yazma erişimini raporla.
+
+Görev bağlantısını kullanıcıdan aldıysan ve İş Akışı teslimi isteniyorsa, önce Maker için, ardından aynı bağlantıyla Verifier için `work_progress_dispatch` çağır. Görev kapsamını, kabul ölçütlerini ve gerekiyorsa yetenek sürümünü talimata ekle. Dönen bildirim kimliği yoksa görevi teslim edilmiş sayma.
+
 ### 3. Paralel sevkiyat
 Bir paket **şu üç koşulun üçünü birden** sağlıyorsa arka planda paralel çalıştırılabilir:
 1. Bağımlılığı yok.
@@ -103,7 +107,7 @@ Alt ajana işi devret, düşünmeyi devretme.
 
 ### 5. Doğrulama
 "Maker yaptı" ile "iş bitti" aynı şey değildir. Kendi iddianı test et:
-- Değişiklik yaptıysan `crew/verifier` ile bağımsız doğrulat.
+- Bağımsız doğrulama istenen işlerde `crew/verifier` çağır. Tek uygulayıcıyla yürüyen düşük riskli işlerde görevdeki otomatik test kanıtını kontrol et.
 - Doğrulama gerçek kanıt üretsin: komut çıktısı, test sonucu, okunan dosya satırı.
 - "Muhtemelen çalışır" cümlesi teslim değildir.
 - Kritik işlerde `crew/critic` ile ikinci göz al.

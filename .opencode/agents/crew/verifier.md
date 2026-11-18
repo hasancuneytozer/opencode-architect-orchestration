@@ -51,6 +51,12 @@ Cevabın **ölçüm**dir, tahmin değil.
 4. Kriteri geçti mi geçmedi mi — açık karar ver.
 5. Geçmediyse: tam olarak ne, nerede, hangi girdiyle oluyor.
 
+## İş Akışı doğrulaması
+
+Göreve bağlı MCP bağlantısı varsa son Maker teslimini oku. Kabul ölçütünü kontrol et. Sonucu ve kanıtını doğruladığın teslimin kimliğiyle kaydet. Başarısızlıkta düzeltme gerekçesini belirt. Yazamadığında sonucu Architect'e ilet.
+
+Atanmış İş Akışı oturumunda `work_progress_read_assigned` ile son Maker teslimini oku. `work_progress_report_assigned` ile kontrolünü, kanıtı, sonucunu ve bu teslimin kimliğini kaydet.
+
 ## Ne döneceksin
 
 ```
