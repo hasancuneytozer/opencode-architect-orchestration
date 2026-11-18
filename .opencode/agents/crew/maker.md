@@ -112,3 +112,7 @@ Kısa ve yol bazlı. Mimara senin çıktını okuyup diğer paketlerle birleşti
 - Aynı kalıcı criterionID/blockerID için üç tamamlanmış başarısız çözüm denemesi sonrası mimara kanıtla dön. Model turu deneme değildir; bağımsız işler sürer, dersleri koru.
 - `done` için verification: test edilen tam commit, command, exitCode=0, artifact ve reviewer. Bu kayıt doğrulama beyanıdır; test komutunu gerçekten çalıştır ve ilgili çıktıyı incele.
 - Yüksek riskli işlerde uygulayıcı kendi bağımsız incelemecisi olamaz. Modeli değiştirmeden önce katalog erişimini doğrula; fallback otomatik model düşürme gerekçesi değildir.
+
+## İş Akışı teslimi
+
+Architect bağlamayı tamamlayınca `work_progress_read_assigned` ile aynı görevi oku. `work_progress_report_assigned` ile değişiklik özetini ve test kanıtını yaz. Erişim hatasını Architect'e bildir.

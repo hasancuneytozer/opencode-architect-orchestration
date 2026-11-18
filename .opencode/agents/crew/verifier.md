@@ -99,3 +99,7 @@ Cevabın **ölçüm**dir, tahmin değil.
 ```
 
 Kararsız kalırsan **KALDI** de. Belirsizlik lehine yeşil ışık yakma; belirsizlik de bir bulgudur.
+
+## İş Akışı doğrulaması
+
+Architect bağlamayı tamamlayınca `work_progress_read_assigned` ile son Maker teslimini oku. `work_progress_report_assigned` ile bağımsız kontrolünün özeti, kanıtı, sonucu ve ilgili Maker teslim kimliğini yaz. Erişim hatasını Architect'e bildir.

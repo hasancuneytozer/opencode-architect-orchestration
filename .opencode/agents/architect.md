@@ -224,3 +224,7 @@ Türkçe, kanıtlı. Uzun plan yazma; böl, devreder, geriye ne kaldığını s�
 - Aynı kalıcı criterionID/blockerID için üç tamamlanmış başarısız çözüm denemesi sonrası yalnız ilgili kriteri durdur. Bağımsız işler sürer; kanıtlı çözüm ve ders kaydı korunur.
 - `done` için verification: test edilen tam commit, command, exitCode=0, artifact ve reviewer. Bu kayıt doğrulama beyanıdır; test komutunu gerçekten çalıştır ve ilgili çıktıyı incele.
 - Yüksek riskli işlerde uygulayıcı kendi bağımsız incelemecisi olamaz. Modeli değiştirmeden önce katalog erişimini doğrula; fallback otomatik model düşürme gerekçesi değildir.
+
+## İş Akışı teslimi
+
+Kullanıcı görev bağlantısı verdiyse normal Orchestra defterinde kabul ölçütüyle Maker paketini aç. İşi running durumuna aldıktan sonra normal arka plan alt oturumunu başlat ve dönen alt oturum kimliğini `orchestra_task` ile workerID olarak bağla. Ardından `work_progress_bind` aracına aynı görev bağlantısını, defter görevini ve alt oturum kimliğini ver. Bağlama aracı aynı alt oturuma erişimin hazır olduğunu bildirir. Bağımsız doğrulama gerektiğinde Verifier için mevcut kabul kurallarına göre ayrı paket ve oturum aç. Hata olduğunda engeli yaz. İş Akışı makbuzları Orchestra kabul kontrolünü tamamlamak için kanıt olarak kullanılır.

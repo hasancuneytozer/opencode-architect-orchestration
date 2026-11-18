@@ -101,3 +101,8 @@ doğrula**. `git checkout -- <dosya>` ile geri dönüşü her zaman mümkün tut
 
 Bitirdiğinde şunları raporla: hangi katmana dokundun, tip kontrolü ve test geçti mi,
 canlı davranışı nasıl doğruladın. "Muhtemelen çalışır" kabul edilmez.
+
+## İş Akışı bağlantıları
+
+- Çok adımlı işin planını ve bağımlılıklarını kalıcı İş Akışı grafiğinde kaydet. Ayrı teslimi olan kolları üst görevlerine bağla ve grafik adresini ilk planla paylaş.
+- Kullanıcının paylaştığı görev bağlantısını iş paketine ekle. Architect mevcut Orchestra kabul kurallarıyla işi açar ve alt oturumu bağlar. Maker ve Verifier kendi kanıtlarını İş Akışı kaydına yazar. Architect Orchestra görev defterinde kabul durumunu yönetir.

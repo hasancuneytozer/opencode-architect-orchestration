@@ -25,6 +25,7 @@ import path from "node:path"
 // yüklenir; `npm install` yalnız `tsc`/test için gereklidir.
 import type { Plugin } from "@opencode/plugin/promise/plugin"
 import { registerTools } from "./tools.ts"
+import { registerWorkProgress } from "./work-progress.ts"
 import { registerLoop } from "./loop.ts"
 import { registerFallback, type FallbackHandle } from "./fallback.ts"
 import { TaskLedger } from "./tasks.ts"
@@ -445,6 +446,7 @@ const plugin: Plugin = {
     // desen: `orchestra.json` değişince plugin yeniden yüklenmeden geçerli olur.
     await record("tasks", () => TaskLedger.open(memory, ctx.location.directory, "tanilama"))
     await record("tools", () => registerTools(ctx, memory))
+    const disposeWorkProgress = await record("work-progress", () => registerWorkProgress(ctx, memory))
     await record("loop", () => registerLoop(ctx, memory))
     const fallback = await record("fallback", async () => registerFallback(ctx, memory, ctx.location.directory))
     await memory.setDiagnostics({ startedAt: new Date().toISOString(), steps, detail })
@@ -565,7 +567,7 @@ const plugin: Plugin = {
     })
 
     return async () => {
-      await Promise.allSettled([observeHook.dispose(), promptHook.dispose(), contextHook.dispose()])
+      await Promise.allSettled([observeHook.dispose(), promptHook.dispose(), contextHook.dispose(), disposeWorkProgress?.()])
     }
   },
 }
