@@ -8,6 +8,14 @@ const namespace = "work_progress"
 const roles = { "crew/maker": "maker", "crew/verifier": "verifier" } as const
 type Agent = keyof typeof roles
 type Assignment = { parentId: string; ledgerId: string; agent: Agent; flowId: string; taskId: string }
+type Report = { id: string; role: string; actor: string; outcome: string; deliveryId: string | null; evidence: string; summary: string }
+type TaskView = { projectId: string; task: { status: string; reports?: Report[] } }
+type DeliveryInput = { summary: string; evidence: string }
+type VerificationInput = DeliveryInput & { outcome: "passed" | "failed" }
+const evidenceFields = {
+  summary: { type: "string", maxLength: 1800 },
+  evidence: { type: "string", maxLength: 1000 },
+}
 
 function reference(value: string) {
   try {
@@ -39,6 +47,7 @@ async function request<T>(path: string, method: string, body?: object, token?: s
 export async function registerWorkProgress(ctx: Context, memory: Memory) {
   const links = new Map<string, Set<string>>()
   const assignments = new Map<string, Assignment>()
+  const readDeliveries = new Map<string, string>()
   const reported = new Set<string>()
   const writing = new Set<string>()
   const prompts = await ctx.session.hook("prompt", event => {
@@ -64,7 +73,7 @@ export async function registerWorkProgress(ctx: Context, memory: Memory) {
     return agent as Agent
   }
 
-  async function callAssigned(call: ToolContext, args?: object) {
+  async function callAssigned(call: ToolContext, args?: DeliveryInput | (VerificationInput & { deliveryId: string })) {
     const worker = call.sessionID
     const grant = assignments.get(worker)
     if (!grant || call.agent !== grant.agent || await checkWorker(worker, grant.parentId, grant.ledgerId) !== grant.agent) {
@@ -80,11 +89,16 @@ export async function registerWorkProgress(ctx: Context, memory: Memory) {
       })
       try {
         call.signal.throwIfAborted()
-        const result = await request("/mcp/call", "POST", {
+        const result = await request<{ task: TaskView["task"] }>("/mcp/call", "POST", {
           tool: args ? "work_progress_report" : "work_progress_task",
           args: args ?? {}, ...(args ? { idempotencyKey: call.id } : {}),
         }, access.clientToken)
         if (args) reported.add(worker)
+        else if (grant.agent === "crew/verifier") {
+          const delivery = result.task.reports?.findLast(report => report.role === "maker")
+          if (delivery && result.task.status === "review") readDeliveries.set(worker, delivery.id)
+          else readDeliveries.delete(worker)
+        }
         return { content: JSON.stringify(result) }
       } finally {
         await request("/mcp/clients/" + encodeURIComponent(access.clientId), "DELETE")
@@ -92,6 +106,17 @@ export async function registerWorkProgress(ctx: Context, memory: Memory) {
     } finally {
       if (args) writing.delete(worker)
     }
+  }
+
+  async function architectTask(value: string, call: ToolContext) {
+    const target = reference(value)
+    const parent = await ctx.session.get({ sessionID: call.sessionID })
+    if (parent.parentID || call.agent !== "architect" || !target || !links.get(call.sessionID)?.has(target.key)) {
+      throw new Error("Architect ana oturumunun son kullanıcı iletisindeki görev bağlantısı gerekir.")
+    }
+    const view = await request<TaskView>("/work-progress/reference?ref=" + encodeURIComponent(target.href), "GET")
+    if (view.projectId !== target.projectId) throw new Error("Görev bağlantısının proje bilgisi eşleşmiyor.")
+    return { target, parent, task: view.task }
   }
 
   const tools = await ctx.tool.transform(editor => {
@@ -106,14 +131,8 @@ export async function registerWorkProgress(ctx: Context, memory: Memory) {
       },
       async execute(raw, call) {
         const input = raw as { reference: string; ledgerId: string; workerId: string }
-        const target = reference(input.reference)
-        const parent = await ctx.session.get({ sessionID: call.sessionID })
-        if (parent.parentID || call.agent !== "architect" || !target || !links.get(call.sessionID)?.has(target.key)) {
-          throw new Error("Bağlamak için Architect ana oturumunun son kullanıcı iletisindeki görev bağlantısı gerekir.")
-        }
+        const { target, parent } = await architectTask(input.reference, call)
         const agent = await checkWorker(input.workerId, parent.id, input.ledgerId)
-        const view = await request<{ projectId: string }>("/work-progress/reference?ref=" + encodeURIComponent(target.href), "GET")
-        if (view.projectId !== target.projectId) throw new Error("Görev bağlantısının proje bilgisi eşleşmiyor.")
         const next = { parentId: parent.id, ledgerId: input.ledgerId, agent, flowId: target.flowId, taskId: target.taskId }
         const previous = assignments.get(input.workerId)
         if (previous && JSON.stringify(previous) !== JSON.stringify(next)) {
@@ -124,7 +143,9 @@ export async function registerWorkProgress(ctx: Context, memory: Memory) {
           try {
             await ctx.session.prompt({
               sessionID: input.workerId,
-              text: "İş Akışı erişimi hazır. Atanmış görevi work_progress_read_assigned ile aç. Kabul ölçütündeki kendi sonucunu work_progress_report_assigned ile kaydet.",
+              text: agent === "crew/maker"
+                ? "Atanmış görevi work_progress_read_assigned ile oku. work_progress_report_assigned ile yalnız özet ve somut kontrol kanıtı yaz. Makbuz yoksa hatayı Architect’e bildir."
+                : "work_progress_read_assigned ile son Maker teslimini oku. work_progress_verify_assigned ile özet, kanıt ve karar yaz. Kanıt eksikse failed seç. Teslim kimliğini araç bağlar. Makbuz yoksa hatayı Architect’e bildir.",
             }, { signal: call.signal })
           } catch (error) {
             assignments.delete(input.workerId)
@@ -143,23 +164,54 @@ export async function registerWorkProgress(ctx: Context, memory: Memory) {
     })
     editor.add({
       name: "report_assigned",
-      description: "Maker özet ve kanıt yazar. Verifier bunlarla birlikte outcome ve Maker deliveryId değerini verir.",
+      description: "Maker teslimi. Yalnız summary ve evidence yaz.",
+      options: { namespace },
+      input: {
+        type: "object", properties: evidenceFields,
+        required: ["summary", "evidence"], additionalProperties: false,
+      },
+      async execute(raw, call) {
+        if (call.agent !== "crew/maker") throw new Error("Bu teslim aracını yalnız Maker kullanabilir.")
+        return callAssigned(call, raw as DeliveryInput)
+      },
+    })
+    editor.add({
+      name: "verify_assigned",
+      description: "Verifier kararı. Önce atanmış Maker teslimini oku. Teslim kimliğini araç bağlar.",
       options: { namespace },
       input: {
         type: "object",
-        properties: {
-          summary: { type: "string", maxLength: 1800 }, evidence: { type: "string", maxLength: 1000 },
-          outcome: { type: "string", enum: ["passed", "failed"] }, deliveryId: { type: "string" },
-        },
-        required: ["summary", "evidence"], additionalProperties: false,
+        properties: { ...evidenceFields, outcome: { type: "string", enum: ["passed", "failed"] } },
+        required: ["summary", "evidence", "outcome"], additionalProperties: false,
       },
-      execute: async (raw, call) => callAssigned(call, raw as object),
+      async execute(raw, call) {
+        if (call.agent !== "crew/verifier") throw new Error("Bu doğrulama aracını yalnız Verifier kullanabilir.")
+        const deliveryId = readDeliveries.get(call.sessionID)
+        if (!deliveryId) throw new Error("Önce work_progress_read_assigned ile incelemedeki Maker teslimini oku.")
+        return callAssigned(call, { ...(raw as VerificationInput), deliveryId })
+      },
+    })
+    editor.add({
+      name: "inspect_delivery",
+      description: "Architect, kullanıcı tarafından verilen görevde Maker teslimini ve o teslime bağlı Verifier kararını okur.",
+      options: { namespace, permission: "orchestra_task" },
+      input: {
+        type: "object", properties: { reference: { type: "string" } },
+        required: ["reference"], additionalProperties: false,
+      },
+      async execute(raw, call) {
+        const { task } = await architectTask((raw as { reference: string }).reference, call)
+        const delivery = task.reports?.findLast(report => report.role === "maker")
+        const verification = delivery && task.reports?.findLast(report => report.role === "verifier" && report.deliveryId === delivery.id)
+        return { content: JSON.stringify({ status: task.status, delivery, verification }) }
+      },
     })
   })
 
   return async () => {
     links.clear()
     assignments.clear()
+    readDeliveries.clear()
     reported.clear()
     await Promise.allSettled([prompts.dispose(), tools.dispose()])
   }

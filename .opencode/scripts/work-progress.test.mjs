@@ -24,7 +24,7 @@ test("only the actual running Orchestra worker can report its assigned workflow 
   }
   const dispose = { dispose: async () => {} }
   const tools = new Map(), requests = [], notifications = []
-  let prompt
+  let prompt, latestDelivery = "fixture-report"
   const ctx = {
     location: { directory },
     session: {
@@ -42,9 +42,19 @@ test("only the actual running Orchestra worker can report its assigned workflow 
     const body = init.body ? JSON.parse(init.body) : null
     requests.push([new URL(url).pathname, init.method, body])
     if (init.headers.Authorization) assert.equal(init.headers.Authorization, "Bearer fixture")
-    if (url.includes("/reference?")) return Response.json({ projectId: "plan" })
+    if (url.includes("/reference?")) return Response.json({
+      projectId: "plan",
+      task: { status: "review", reports: [
+        { id: latestDelivery, role: "maker" },
+        { id: "older-verification", role: "verifier", deliveryId: "older-delivery" },
+      ] },
+    })
     if (init.method === "DELETE") return Response.json({ revoked: true })
     if (url.endsWith("/mcp/clients")) return Response.json({ clientId: "fixture-client", clientToken: "fixture" })
+    if (body.tool === "work_progress_task") {
+      return Response.json({ task: { status: "review", reports: [{ id: latestDelivery, role: "maker" }] } })
+    }
+    if (body.args.deliveryId && body.args.deliveryId !== latestDelivery) return new Response(null, { status: 409 })
     return Response.json({ reportId: "fixture-report" })
   }
   const release = await registerWorkProgress(ctx, memory)
@@ -55,22 +65,39 @@ test("only the actual running Orchestra worker can report its assigned workflow 
   const reference = "http://127.0.0.1:5173/is-akisi?project=plan&work=flow&task=step"
   const assign = { reference, ledgerId: ledger.list()[0].id, workerId: "maker" }
   await assert.rejects(invoke("bind", "parent", assign), /son kullanıcı/)
+  await assert.rejects(invoke("inspect_delivery", "parent", { reference }), /son kullanıcı/)
   prompt({ sessionID: "parent", prompt: { text: reference } })
   await assert.rejects(invoke("bind", "parent", { ...assign, workerId: "sibling" }), /görev defterinde/)
   await invoke("bind", "parent", assign)
   await assert.rejects(invoke("report_assigned", "sibling", {}), /raporlanabilir/)
-  await assert.rejects(invoke("report_assigned", "maker", {}, "crew/verifier"), /raporlanabilir/)
+  await assert.rejects(invoke("report_assigned", "maker", {}, "crew/verifier"), /yalnız Maker/)
   await invoke("read_assigned", "maker", {})
   await invoke("report_assigned", "maker", { summary: "Teslim", evidence: "Test" })
   await assert.rejects(invoke("report_assigned", "maker", {}), /zaten/)
   await invoke("bind", "parent", { ...assign, ledgerId: ledger.list()[1].id, workerId: "verifier" })
-  await invoke("report_assigned", "verifier", { summary: "Kontrol", evidence: "Test", outcome: "passed", deliveryId: "fixture-report" })
+  const verification = { summary: "Kontrol", evidence: "Test kanıtı", outcome: "failed" }
+  assert.deepEqual(Object.keys(tools.get("report_assigned").input.properties), ["summary", "evidence"])
+  assert.deepEqual(Object.keys(tools.get("verify_assigned").input.properties), ["summary", "evidence", "outcome"])
+  await assert.rejects(invoke("verify_assigned", "maker", verification), /yalnız Verifier/)
+  await assert.rejects(invoke("verify_assigned", "verifier", verification), /Önce/)
+  await invoke("read_assigned", "verifier", {})
+  latestDelivery = "new-delivery"
+  await assert.rejects(invoke("verify_assigned", "verifier", verification), /409/)
+  await invoke("read_assigned", "verifier", {})
+  await invoke("verify_assigned", "verifier", verification)
+  const reports = requests.filter(([, , body]) => body?.tool === "work_progress_report").map(([, , b]) => b.args)
+  assert.deepEqual(reports, [{ summary: "Teslim", evidence: "Test" }, { ...verification, deliveryId: "fixture-report" }, { ...verification, deliveryId: "new-delivery" }])
+  const inspected = JSON.parse((await invoke("inspect_delivery", "parent", { reference })).content)
+  assert.deepEqual(inspected, { status: "review", delivery: { id: "new-delivery", role: "maker" } })
   assert.deepEqual(requests.filter(([, , body]) => body?.assignment).map(([, , b]) => b.assignment), [
     { flowId: "flow", taskId: "step", role: "maker", actor: "maker" },
     { flowId: "flow", taskId: "step", role: "maker", actor: "maker" },
     { flowId: "flow", taskId: "step", role: "verifier", actor: "verifier" },
+    { flowId: "flow", taskId: "step", role: "verifier", actor: "verifier" },
+    { flowId: "flow", taskId: "step", role: "verifier", actor: "verifier" },
+    { flowId: "flow", taskId: "step", role: "verifier", actor: "verifier" },
   ])
-  assert.equal(requests.filter(([, method]) => method === "DELETE").length, 3)
+  assert.equal(requests.filter(([, method]) => method === "DELETE").length, 6)
   assert.deepEqual(notifications, ["maker", "verifier"])
   assert.equal((await ledger.update({ id: assign.ledgerId, status: "verifying" })).ok, true)
   await assert.rejects(invoke("read_assigned", "maker", {}), /görev defterinde/)

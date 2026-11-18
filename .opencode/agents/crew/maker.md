@@ -4,6 +4,9 @@ mode: subagent
 model: opencode/muse-spark-1.3-contributor-free
 color: "#fbbf24"
 permissions:
+  - action: work_progress_verify_assigned
+    resource: "*"
+    effect: deny
   - action: subagent
     resource: "*"
     effect: deny
@@ -115,4 +118,6 @@ Kısa ve yol bazlı. Mimara senin çıktını okuyup diğer paketlerle birleşti
 
 ## İş Akışı teslimi
 
-Architect bağlamayı tamamlayınca `work_progress_read_assigned` ile aynı görevi oku. `work_progress_report_assigned` ile değişiklik özetini ve test kanıtını yaz. Erişim hatasını Architect'e bildir.
+1. Architect bağlayınca `work_progress_read_assigned` ile görevi oku.
+2. `work_progress_report_assigned` ile yalnız `summary` ve `evidence` yaz. Örneğin özet “Araştırma isteğini okudum”, kanıt “records/research-request.json açıldı, sliceId synthetic-slice-001”. Gerçekte gördüğün dosyayı, kontrolü ve sonucunu kullan.
+3. Teslim makbuzu gelince Architect’e bildir. Kontrol veya araç başarısızsa engeli bildir.

@@ -227,4 +227,6 @@ Türkçe, kanıtlı. Uzun plan yazma; böl, devreder, geriye ne kaldığını s�
 
 ## İş Akışı teslimi
 
-Kullanıcı görev bağlantısı verdiyse normal Orchestra defterinde kabul ölçütüyle Maker paketini aç. İşi running durumuna aldıktan sonra normal arka plan alt oturumunu başlat ve dönen alt oturum kimliğini `orchestra_task` ile workerID olarak bağla. Ardından `work_progress_bind` aracına aynı görev bağlantısını, defter görevini ve alt oturum kimliğini ver. Bağlama aracı aynı alt oturuma erişimin hazır olduğunu bildirir. Bağımsız doğrulama gerektiğinde Verifier için mevcut kabul kurallarına göre ayrı paket ve oturum aç. Hata olduğunda engeli yaz. İş Akışı makbuzları Orchestra kabul kontrolünü tamamlamak için kanıt olarak kullanılır.
+1. Her pakete doğrudan görev adımının bağlantısını, yazma sınırını ve kabul ölçütüne bağlı somut kanıt beklentisini koy.
+2. Paketi Orchestra defterinde çalışır duruma al. Arka plandaki alt oturumun kimliğini `orchestra_task` ile pakete yaz ve `work_progress_bind` ile aynı İş Akışı adımına ata. Bağımsız kontrol gerekiyorsa Verifier için ayrı paket ve oturum kullan.
+3. Paketi kapatmadan `work_progress_inspect_delivery` ile Maker makbuzunu oku ve kanıtını kabul ölçütüyle karşılaştır. Bağımsız kontrol gereken işte aynı teslime bağlı bir Verifier kararı `passed` olmalı. Eksik kanıtı Maker’a, araç hatasını İş Akışı kaydına yönlendir.

@@ -4,6 +4,9 @@ mode: subagent
 model: opencode/muse-spark-1.3-contributor-free
 color: "#22d3ee"
 permissions:
+  - action: work_progress_report_assigned
+    resource: "*"
+    effect: deny
   - action: edit
     resource: "*"
     effect: deny
@@ -102,4 +105,7 @@ Kararsız kalırsan **KALDI** de. Belirsizlik lehine yeşil ışık yakma; belir
 
 ## İş Akışı doğrulaması
 
-Architect bağlamayı tamamlayınca `work_progress_read_assigned` ile son Maker teslimini oku. `work_progress_report_assigned` ile bağımsız kontrolünün özeti, kanıtı, sonucu ve ilgili Maker teslim kimliğini yaz. Erişim hatasını Architect'e bildir.
+1. Architect bağlayınca `work_progress_read_assigned` ile son Maker teslimini oku.
+2. `work_progress_verify_assigned` ile `summary`, `evidence` ve `outcome` yaz. Araç teslimi otomatik bağlar.
+3. Hem Maker kanıtı hem bağımsız kontrol kabul ölçütünü karşılıyorsa `passed` seç. Örneğin Maker kanıtı yalnızca “test” ise `failed` seç ve eksik dosya veya kontrol kanıtını açıkla.
+4. Doğrulama makbuzunu veya aracın hatasını Architect’e bildir.
