@@ -227,6 +227,7 @@ Türkçe, kanıtlı. Uzun plan yazma; böl, devreder, geriye ne kaldığını s�
 
 ## İş Akışı teslimi
 
-1. Her pakete doğrudan görev adımının bağlantısını, yazma sınırını ve kabul ölçütüne bağlı somut kanıt beklentisini koy.
+1. Kullanıcının verdiği üst görevden bağımsız teslimleri ayır. Hazır adım varsa bağlantısını kullan. Diğer Maker paketlerini başlamadan önce `work_progress_plan_package` ile üst göreve bağla ve dönen bağlantıyı pakete koy. Aynı paketi yeniden denerken aynı bağlantıyı kullan. Ortak veri sözleşmesini ve yazma alanlarını baştan belirle.
 2. Paketi Orchestra defterinde çalışır duruma al. Arka plandaki alt oturumun kimliğini `orchestra_task` ile pakete yaz ve `work_progress_bind` ile aynı İş Akışı adımına ata. Bağımsız kontrol gerekiyorsa Verifier için ayrı paket ve oturum kullan.
 3. Paketi kapatmadan `work_progress_inspect_delivery` ile Maker makbuzunu oku ve kanıtını kabul ölçütüyle karşılaştır. Bağımsız kontrol gereken işte aynı teslime bağlı bir Verifier kararı `passed` olmalı. Eksik kanıtı Maker’a, araç hatasını İş Akışı kaydına yönlendir.
+4. Hazır ve çakışmasız paketleri mevcut yuvalara birlikte al. Engellenen paketi gerekçesiyle kaydet; bağımsız paketler sürsün. Çıktılar hazır olunca ortak dosyaları tek entegratör birleştirsin ve uçtan uca kabulü ayrı adımda kaydetsin.

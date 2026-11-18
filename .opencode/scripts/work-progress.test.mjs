@@ -16,6 +16,10 @@ test("only the actual running Orchestra worker can report its assigned workflow 
     assert.equal((await ledger.add({ title: role, role: "crew/" + role, acceptance: "Evidence: " + role })).ok, true)
     assert.equal((await ledger.update({ id: ledger.list().at(-1).id, status: "running", workerID })).ok, true)
   }
+  assert.equal((await ledger.add({
+    title: "Planlanan uygulama", role: "crew/maker", acceptance: "Test geçer", writeSurface: ["app/"],
+  })).ok, true)
+  const plannedId = ledger.list().at(-1).id
   const sessions = {
     parent: { id: "parent", agent: "architect" },
     maker: { id: "maker", parentID: "parent", agent: "crew/maker" },
@@ -25,6 +29,7 @@ test("only the actual running Orchestra worker can report its assigned workflow 
   const dispose = { dispose: async () => {} }
   const tools = new Map(), requests = [], notifications = []
   let prompt, latestDelivery = "fixture-report"
+  const plannedReference = "http://127.0.0.1:5173/is-akisi?project=plan&work=branch&task=deliver"
   const ctx = {
     location: { directory },
     session: {
@@ -42,6 +47,15 @@ test("only the actual running Orchestra worker can report its assigned workflow 
     const body = init.body ? JSON.parse(init.body) : null
     requests.push([new URL(url).pathname, init.method, body])
     if (init.headers.Authorization) assert.equal(init.headers.Authorization, "Bearer fixture")
+    if (url.endsWith("/work-progress/packages")) {
+      assert.equal(body.key, "parent:" + plannedId)
+      assert.match(body.plan, /app\//)
+      return Response.json({ reference: plannedReference })
+    }
+    if (url.includes(encodeURIComponent(plannedReference))) return Response.json({
+      projectId: "plan", parent: { workId: "flow", taskId: "step" },
+      packageKey: "parent:" + plannedId, revision: 1, task: { status: "waiting" },
+    })
     if (url.includes("/reference?")) return Response.json({
       projectId: "plan",
       task: { status: "review", reports: [
@@ -66,7 +80,13 @@ test("only the actual running Orchestra worker can report its assigned workflow 
   const assign = { reference, ledgerId: ledger.list()[0].id, workerId: "maker" }
   await assert.rejects(invoke("bind", "parent", assign), /son kullanıcı/)
   await assert.rejects(invoke("inspect_delivery", "parent", { reference }), /son kullanıcı/)
+  await assert.rejects(invoke("plan_package", "parent", { reference, ledgerId: plannedId }), /son kullanıcı/)
   prompt({ sessionID: "parent", prompt: { text: reference } })
+  assert.deepEqual(JSON.parse((await invoke("plan_package", "parent", { reference, ledgerId: plannedId })).content),
+    { reference: plannedReference })
+  assert.deepEqual(JSON.parse((await invoke("inspect_delivery", "parent", { reference: plannedReference })).content),
+    { status: "waiting" })
+  await assert.rejects(invoke("bind", "parent", { ...assign, reference: plannedReference }), /farklı bir Maker/)
   await assert.rejects(invoke("bind", "parent", { ...assign, workerId: "sibling" }), /görev defterinde/)
   await invoke("bind", "parent", assign)
   await assert.rejects(invoke("report_assigned", "sibling", {}), /raporlanabilir/)

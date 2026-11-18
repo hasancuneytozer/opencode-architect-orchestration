@@ -9,7 +9,14 @@ const roles = { "crew/maker": "maker", "crew/verifier": "verifier" } as const
 type Agent = keyof typeof roles
 type Assignment = { parentId: string; ledgerId: string; agent: Agent; flowId: string; taskId: string }
 type Report = { id: string; role: string; actor: string; outcome: string; deliveryId: string | null; evidence: string; summary: string }
-type TaskView = { projectId: string; task: { status: string; reports?: Report[] } }
+type TaskView = {
+  projectId: string
+  archivedAt?: number | null
+  parent?: { workId: string; taskId?: string }
+  packageKey?: string
+  revision: number
+  task: { status: string; reports?: Report[] }
+}
 type DeliveryInput = { summary: string; evidence: string }
 type VerificationInput = DeliveryInput & { outcome: "passed" | "failed" }
 const evidenceFields = {
@@ -108,22 +115,55 @@ export async function registerWorkProgress(ctx: Context, memory: Memory) {
     }
   }
 
-  async function architectTask(value: string, call: ToolContext) {
+  async function architectTask(value: string, call: ToolContext, suppliedOnly = false) {
     const target = reference(value)
     const parent = await ctx.session.get({ sessionID: call.sessionID })
-    if (parent.parentID || call.agent !== "architect" || !target || !links.get(call.sessionID)?.has(target.key)) {
+    const authorized = links.get(call.sessionID)
+    if (parent.parentID || call.agent !== "architect" || !target || !authorized?.size) {
       throw new Error("Architect ana oturumunun son kullanıcı iletisindeki görev bağlantısı gerekir.")
     }
     const view = await request<TaskView>("/work-progress/reference?ref=" + encodeURIComponent(target.href), "GET")
-    if (view.projectId !== target.projectId) throw new Error("Görev bağlantısının proje bilgisi eşleşmiyor.")
-    return { target, parent, task: view.task }
+    if (view.projectId !== target.projectId || view.archivedAt != null) throw new Error("Görev bağlantısının proje bilgisi eşleşmiyor veya görev arşivde.")
+    const parentKey = JSON.stringify([view.projectId, view.parent?.workId, view.parent?.taskId])
+    if (!authorized.has(target.key) && (suppliedOnly || !authorized.has(parentKey))) {
+      throw new Error("Görev, son kullanıcı iletisinde verilen adım veya onun doğrudan alt dalı olmalı.")
+    }
+    return { target, parent, task: view.task, revision: view.revision, packageKey: view.packageKey }
   }
 
   const tools = await ctx.tool.transform(editor => {
     editor.namespace({ name: namespace, description: "Orchestra görev defterinde atanmış İş Akışı teslimi" })
     editor.add({
+      name: "plan_package",
+      description: "Architect, planlı Maker paketini kullanıcının verdiği üst İş Akışı görevine bağlı kalıcı alt adım olarak kaydeder. Aynı paket için aynı bağlantıyı döndürür.",
+      options: { namespace, permission: "orchestra_task" },
+      input: {
+        type: "object", properties: { reference: { type: "string" }, ledgerId: { type: "string" } },
+        required: ["reference", "ledgerId"], additionalProperties: false,
+      },
+      async execute(raw, call) {
+        const input = raw as { reference: string; ledgerId: string }
+        const { target, parent } = await architectTask(input.reference, call, true)
+        await memory.sync()
+        const ledger = await TaskLedger.open(memory, ctx.location.directory, parent.id)
+        const task = ledger.get(input.ledgerId)
+        if (task?.status !== "planned" || task.role !== "crew/maker" || !task.acceptance.trim() || !task.writeSurface.length) {
+          throw new Error("Planlı bir Maker paketi, kabul ölçütü ve yazma alanı gerekir.")
+        }
+        const plan = [
+          "Kabul ölçütü: " + task.acceptance,
+          "Yazma alanı: " + task.writeSurface.join(", "),
+          "Bağımlılıklar: " + (task.dependsOn.join(", ") || "Yok"),
+        ].join("\n")
+        const result = await request<{ reference: string }>("/work-progress/packages", "POST", {
+          reference: target.href, key: parent.id + ":" + task.id, title: task.title, plan, directory: ctx.location.directory,
+        })
+        return { content: JSON.stringify(result) }
+      },
+    })
+    editor.add({
       name: "bind",
-      description: "Architect, görev defterindeki çalışan alt oturuma kullanıcı tarafından verilen İş Akışı görevini bağlar.",
+      description: "Architect, çalışan alt oturuma kullanıcı tarafından verilen İş Akışı görevini veya doğrudan alt dalını bağlar.",
       options: { namespace, permission: "orchestra_task" },
       input: {
         type: "object", properties: { reference: { type: "string" }, ledgerId: { type: "string" }, workerId: { type: "string" } },
@@ -131,14 +171,22 @@ export async function registerWorkProgress(ctx: Context, memory: Memory) {
       },
       async execute(raw, call) {
         const input = raw as { reference: string; ledgerId: string; workerId: string }
-        const { target, parent } = await architectTask(input.reference, call)
+        const { target, parent, task, revision, packageKey } = await architectTask(input.reference, call)
         const agent = await checkWorker(input.workerId, parent.id, input.ledgerId)
+        if (agent === "crew/maker" && packageKey && packageKey !== parent.id + ":" + input.ledgerId) {
+          throw new Error("Bu İş Akışı adımı farklı bir Maker paketine ait.")
+        }
         const next = { parentId: parent.id, ledgerId: input.ledgerId, agent, flowId: target.flowId, taskId: target.taskId }
         const previous = assignments.get(input.workerId)
         if (previous && JSON.stringify(previous) !== JSON.stringify(next)) {
           throw new Error("Bağlı oturumun İş Akışı görevi değiştirilemez.")
         }
         if (!previous) {
+          if (agent === "crew/maker" && task.status === "waiting") {
+            await request("/work-progress/" + encodeURIComponent(target.flowId) + "/tasks", "PUT", {
+              revision, id: target.taskId, status: "active",
+            })
+          }
           assignments.set(input.workerId, next)
           try {
             await ctx.session.prompt({
