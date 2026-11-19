@@ -16,6 +16,7 @@ import type { Memory, ReportState } from "./memory"
 // strip-types -e "import('./tasks.ts')"`). Defter OTURUMA BAĞLIDIR, bu yüzden
 // her çağrıda `context.sessionID` ile açılır.
 import { TaskLedger, acceptanceState, type LedgerResult } from "./tasks.ts"
+import { workflowLoopReferences } from "./loop.ts"
 
 const OBJECT = { type: "object" } as const
 const STRING = { type: "string" } as const
@@ -316,7 +317,7 @@ export async function okunacakOturum(ctx: OturumOkuyucu, memory: YuvaOkuyucu, se
 const DEFTER_YOK =
   "HATA: görev defteri açılamadı. Plugin tanılamasına bak (orchestra_recall çıktısındaki UYARI satırı). Bu çağrıda HİÇBİR ŞEY yazılmadı."
 
-export function registerTools(ctx: PluginContext, memory: Memory): Promise<unknown> {
+export function registerTools(ctx: PluginContext, memory: Memory, workflowLinked?: (sessionID: string) => Promise<boolean>): Promise<unknown> {
   return ctx.tool.transform((editor) => {
     editor.namespace({
       name: "orchestra",
@@ -489,6 +490,9 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
         const sessionID = context.sessionID
         await memory.syncStore()
         const loop = memory.getLoop(sessionID)
+        if ((loop.status !== "running" || workflowLoopReferences(loop.goal ?? "").length) && await workflowLinked?.(sessionID)) {
+          return text("Teslim ve doğrulamayı İş Akışı görevinde izle. Bu görev için ayrı bir döngü raporu gerekmez.")
+        }
         const vault = memory.getTaskVault(sessionID)
         const state = acceptanceState(vault)
         if (status === "done" && !state.done) return text("HATA: INCOMPLETE_ACCEPTANCE: verify all criteria and close live tasks")
@@ -602,7 +606,7 @@ export function registerTools(ctx: PluginContext, memory: Memory): Promise<unkno
             role: asString(input.role),
             acceptance: asString(input.acceptance),
             writeSurface: input.writeSurface === undefined ? undefined : asArray(input.writeSurface),
-          })
+          }, {standaloneOnly:true})
           return text(ledgerMetni(sonuc, input.status ? `Durum güncellendi (${input.status})` : "Görev güncellendi"))
         } catch (error) {
           return text(`HATA: görev defteri yazılamadı: ${error instanceof Error ? error.message : String(error)}`)

@@ -38,7 +38,7 @@ export const SERVER_SCRIPT_NAME = "server.mjs"
 /** Kaynak plugin dizini. YALNIZCA okunur; hafiza dizini icermez. */
 export const SOURCE_PLUGIN_DIR_REL = [".opencode", "plugins", "orchestra"]
 /** Kirpilan dosyalar: bunun disindaki hicbir sey kopyalanmaz. */
-export const PLUGIN_SOURCE_FILES = ["index.ts", "memory.ts", "loop.ts", "fallback.ts", "tasks.ts", "tools.ts"]
+export const PLUGIN_SOURCE_FILES = ["index.ts", "memory.ts", "loop.ts", "fallback.ts", "tasks.ts", "tools.ts", "work-progress.ts"]
 export const INDEX_FILE = "index.ts"
 export const MIRRORED_PLUGIN_DIR_NAME = "orchestra"
 
@@ -383,7 +383,7 @@ export function validateIdentity(state, info, root, expectedHash, expectedNonce)
 export const GENERATED_PLUGIN_ALIAS = GENERATED_PLUGIN_ID
 /** Config de `-orchestra` ile kapatilmasi beklenen yerlesik kimlik. */
 export const ORIGINAL_PLUGIN_ID = DISABLED_PLUGIN_ID
-export const REQUIRED_DIAGNOSTIC_STEPS = ["tools", "loop", "fallback", "tasks"]
+export const REQUIRED_DIAGNOSTIC_STEPS = ["tools", "loop", "fallback", "tasks", "work-progress"]
 export const MAX_REPORTED_WARNINGS = 5
 
 /**
@@ -420,7 +420,7 @@ export function verifyPluginInventory(list) {
 /**
  * Ozel hafiza `state.json` -> `diagnostics.steps` dogrulamasi (saf).
  *
- * `tools/loop/fallback/tasks` dort adim TAM OLARAK "ok" olmali; eksik ya da baska deger
+ * `tools/loop/fallback/tasks/work-progress` adimlari TAM OLARAK "ok" olmali; eksik ya da baska deger
  * plugin'in yarim kuruldugunu kanitlar (donanim hazir ama orkestra yok). Dosya `.orchestra-
  * runtime/memory/<projectHash>` altinda oldugu icin bu kontrol ayni zamanda "hafiza gercekten
  * OZEL dizine yazildi" kanitidir.

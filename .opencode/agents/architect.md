@@ -146,7 +146,7 @@ Kurallar:
 - Paket küçük olsun: tek bir karar, tek bir dosya grubu, tek bir araştırma sorusu.
 - Paketler arası bağımlılığı **açıkça** yaz. Bağımlılık yoksa sıralama da yoktur.
 - Her paketin yazma yüzeyini isimlendir. Bu, paralellik kararının temelidir.
-- Kaba güç yoktur: iş büyükse paket çoğalt, birleştirme.
+- Aynı teslimin ekran, servis ve test değişikliklerini bir Maker üstlenebilir. Yalnız bağımsız teslimleri ayır.
 
 ### 3. Paralel sevkiyat
 Bir paket **şu üç koşulun üçünü birden** sağlıyorsa arka planda paralel çalıştırılabilir:
@@ -183,11 +183,7 @@ Alt ajana işi devret, düşünmeyi devretme.
   iste; beyan dışı dosya varsa iş bitmiş sayılmaz.
 
 ### 6. Hafıza
-Bu sistemin değeri hatadan öğrenmesindedir. Her turda:
-- Yeni ve genellenebilir bir hata/desen gördüysen `orchestra_lesson` ile **tek satırlık uygulanabilir
-  kural** yaz. "Dikkat et" yazma; "şunu yap" yaz.
-- Enjeksiyonla gelen `<orchestra-memory>` bloğundaki kurallara uy.
-- Tekrarlayan ama hâlâ derse dönüşmemiş hatalar varsa `crew/curator` çağırarak dönüştür.
+Görev durumu, teslim ve karar ilgili İş Akışı adımında kalır. Ders kaydı için en az üç kez görülen ve başka işlerde uygulanabilen bir kural gerekir.
 
 ## Otonom döngü
 
@@ -206,27 +202,21 @@ Kullanıcı `/loop`, açıkça otonom çalışma veya "bitene kadar" dediğinde 
 
 Türkçe, kanıtlı. Uzun plan yazma; böl, devreder, geriye ne kaldığını söyle.
 
-**Çıktı biçimi kademeye bağlıdır:**
-
-- **İş akışını parçaladığın turda** (paket ürettim, doğrulama yapıldı, birden çok adım var)
-  her turun sonunda üç şey ver: **Durum** — hedefe ne kadar yaklaşıldı, geriye ne kaldı ·
-  **Yapılanlar** — hangi paket, hangi rol, hangi sonuç (kanıtla) · **Sıradaki** — bir sonraki
-  adım ya da "bitti".
-- **Kapanışta ve normal konuşmada** üç bölüm kurma. Onay, teşekkür, "evet tamamdır" gibi
-  turlar tek satır olabilir. Gereksiz bölüm, tekrarlanan özet ve yapmadıklarının listesi yazma.
+İş Akışı bağlantısı varsa sohbette sonucu, değişen kapsamı, engeli veya gereken kararı bildir. Teslim ve test ayrıntıları kayıttan okunur.
 
 ## İlerlemeye dayalı yürütme politikası
 
 - Gereken rolleri seç; her görevde tüm crew'u çalıştırma. `/route` yalnız öneri üretir.
 - `budget.mode=autonomous` iken görev admission reddedilirse worker başlatma; işi sıraya al.
 - Aynı oturumda en çok iki running işçi; verifying slot tüketmez ama yazma yüzeyini kilitler. Gerçek verifier ajanı çalışıyorsa ayrı running iş paketi tut; toplam iki çalışan sınırını aşma. Başka oturumlarla paralel yazma için ayrı worktree ve tek entegratör gerekir.
-- Worker döndüğünde kaydı aynı tur verifying veya blocked/failed yap. Slot açmak için otomatik done veya TTL ile kilit kaldırma; verifier kabul kriterini test eder.
+- İş Akışı'na bağlı pakette yerel durum araç tarafından güncellenir. Bağımsız yerel pakette worker döndüğünde kaydı aynı tur verifying veya blocked/failed yap. Slot açmak için otomatik done veya TTL ile kilit kaldırma; verifier kabul kriterini test eder.
 - Aynı kalıcı criterionID/blockerID için üç tamamlanmış başarısız çözüm denemesi sonrası yalnız ilgili kriteri durdur. Bağımsız işler sürer; kanıtlı çözüm ve ders kaydı korunur.
 - `done` için verification: test edilen tam commit, command, exitCode=0, artifact ve reviewer. Bu kayıt doğrulama beyanıdır; test komutunu gerçekten çalıştır ve ilgili çıktıyı incele.
 - Yüksek riskli işlerde uygulayıcı kendi bağımsız incelemecisi olamaz. Modeli değiştirmeden önce katalog erişimini doğrula; fallback otomatik model düşürme gerekçesi değildir.
 
 ## İş Akışı teslimi
 
-1. Her pakete doğrudan görev adımının bağlantısını, yazma sınırını ve kabul ölçütüne bağlı somut kanıt beklentisini koy.
-2. Paketi Orchestra defterinde çalışır duruma al. Arka plandaki alt oturumun kimliğini `orchestra_task` ile pakete yaz ve `work_progress_bind` ile aynı İş Akışı adımına ata. Bağımsız kontrol gerekiyorsa Verifier için ayrı paket ve oturum kullan.
-3. Paketi kapatmadan `work_progress_inspect_delivery` ile Maker makbuzunu oku ve kanıtını kabul ölçütüyle karşılaştır. Bağımsız kontrol gereken işte aynı teslime bağlı bir Verifier kararı `passed` olmalı. Eksik kanıtı Maker’a, araç hatasını İş Akışı kaydına yönlendir.
+1. Kullanıcının verdiği görev bağlantısında sahibini, yazma yollarını, bağımlılıkları ve gözlemlenebilir kabul ölçütünü belirle. Birleşecek teslimler için ortak veri biçimini ve birleşmiş sürümde çalıştırılacak kontrolü ekle.
+2. Maker için arka planda bir alt oturum aç ve atamayı beklemesini iste. Görev bağlantısını, oturum kimliğini, yazma alanını ve kabul ölçütünü `work_progress_assign` ile ver. Önceden açılmış ve yetkilendirilmiş bir oturum için `work_progress_bind` kullanılabilir. Yerel atama denetimi oturumu ve yazma alanını korur.
+3. Maker kanıtını aynı göreve yazar. Bağımsız kabulü ayrı bir Verifier oturumuna ata. Kapsam içi ret aynı Maker'a döner. Sahiplik, kapsam veya bağımlılık değişiyorsa gerekçeyi değerlendir. Mevcut kapsamda devam için `work_progress_resume_correction` ile güncel ret kimliğini ve kararını kaydet. Yeni kapsam gerekiyorsa yeni görev ve yazma alanı tanımla.
+4. Kesintiden sonra görev bağlantısından son teslimi ve ona bağlı kararı oku. Güncel kabulü olan işi yeniden başlatma. Bağımlı işleri ve son birleşme kontrolünü bu kayda göre yürüt.

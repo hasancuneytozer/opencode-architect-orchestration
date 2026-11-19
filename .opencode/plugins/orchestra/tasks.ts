@@ -57,6 +57,10 @@ export function validVerification(v: unknown): v is VerificationRecord {
     [r.command,r.artifact,r.reviewer].every(s => typeof s === "string" && s.trim().length > 0 && s.length <= 4096)
 }
 export interface TaskRecord {
+  /** Canonical İş Akışı task. This local record controls only worker admission. */
+  workflowRef?: string
+  workflowRevision?: number
+  workflowNeedsDecision?: boolean
   /** Recovery marker for pre-progress records that started without acceptance. */
   legacyUnbound?: boolean
   nextWork?: string
@@ -197,6 +201,7 @@ export function migrateBoard(board: TaskBoard): TaskBoard {
   copy.criteria ??= []
   copy.completedTaskIDs = [...new Set([...(copy.completedTaskIDs ?? []), ...copy.tasks.filter(t => t.status === "done").map(t => t.id)])]
   for (const t of copy.tasks) {
+    if (t.workflowRef && !t.criterionID) continue
     if (!t.acceptance.trim()) {
       if (t.status !== "planned") t.legacyUnbound = true
       continue
@@ -782,6 +787,8 @@ export interface TaskUpdateInput {
 }
 
 export interface TaskAddInput {
+  workflowRef?: string
+  workerID?: string
   supersedes?: string[]
   nextWork?: string
   evidence?: string[]
@@ -968,9 +975,13 @@ export class TaskLedger {
     const id = `P${Math.max(this.board.budget.tasks + 1, Number(nextTaskId(this.board.tasks).slice(1)))}`
     const acceptance = String(input.acceptance ?? "").trim()
     const migrated = migrateBoard(this.board)
-    const same = migrated.criteria!.find(c => c.acceptance === acceptance && acceptance)
+    if (input.workflowRef && migrated.tasks.some(t => t.workflowRef === input.workflowRef && t.role === input.role))
+      return { ok: false, error: "WORKFLOW_ROLE_ALREADY_ASSIGNED", notes, overflow }
+    if (input.workerID && migrated.tasks.some(t => t.workerID === input.workerID))
+      return { ok: false, error: "WORKFLOW_WORKER_ALREADY_ASSIGNED", notes, overflow }
+    const same = input.workflowRef ? undefined : migrated.criteria!.find(c => c.acceptance === acceptance && acceptance)
     if (same && input.criterionID && input.criterionID !== same.id) return {ok:false,error:"CRITERION_ALIAS_COLLISION",notes,overflow}
-    const criterionID = acceptance ? same?.id || input.criterionID?.trim() || newCriterionID(migrated,id) : undefined
+    const criterionID = acceptance && !input.workflowRef ? same?.id || input.criterionID?.trim() || newCriterionID(migrated,id) : undefined
     const criterion = migrated.criteria!.find(c => c.id === criterionID)
     if (criterion && criterion.acceptance !== acceptance)
       return { ok: false, error: "IMMUTABLE_ACCEPTANCE", notes, overflow }
@@ -1007,6 +1018,8 @@ export class TaskLedger {
     }
 
     const task: TaskRecord = {
+      workflowRef: input.workflowRef,
+      workerID: input.workerID,
       nextWork: input.nextWork,
       criterionID,
       id,
@@ -1074,7 +1087,7 @@ export class TaskLedger {
    * `sync()`'i diski okuyana kadar bellekte yarım uygulanmış bir alan bırakırdı
    * (gözlenen durum ile kalıcı durum çelişirdi).
    */
-  async update(input: TaskUpdateInput): Promise<LedgerResult> {
+  async update(input: TaskUpdateInput, options: {standaloneOnly?: boolean} = {}): Promise<LedgerResult> {
     await this.sync()
     const notes: LedgerNote[] = []
     const overflow: BudgetOverflow[] = []
@@ -1082,6 +1095,9 @@ export class TaskLedger {
     const kayitli = this.board.tasks.find((t) => t.id === id)
     if (!kayitli) {
       return { ok: false, error: `HATA: bilinmeyen görev id '${id}'. Önce orchestra_task ile tanımla.`, notes, overflow }
+    }
+    if (options.standaloneOnly && kayitli.workflowRef) {
+      return { ok: false, error: "HATA: Bu atamanın durumunu İş Akışı teslimi ve doğrulama kararı günceller.", notes, overflow }
     }
     // Defterdeki kaydın KOPYASI üzerinde çalış (aşağıdaki `bagla` ile bağlanır).
     const task: TaskRecord = { ...kayitli, dependsOn: [...kayitli.dependsOn], writeSurface: [...kayitli.writeSurface], evidence: [...kayitli.evidence] }
@@ -1095,7 +1111,7 @@ export class TaskLedger {
           draft.verified = false
         }
       }
-      if (task.acceptance && !task.criterionID) {
+      if (task.acceptance && !task.criterionID && !task.workflowRef) {
         this.board = migrateBoard(this.board)
         const same = this.board.criteria!.find(c => c.acceptance === task.acceptance)
         task.criterionID = same?.id ?? newCriterionID(this.board,task.id)
@@ -1135,6 +1151,8 @@ export class TaskLedger {
       if (this.board.criteria?.some(c => c.acceptance === task.acceptance && c.work?.some(w => !w.supersededBy && (w.status === "failed" || w.status === "blocked")))) return {ok:false,error:"RETRY_PLAN_REQUIRED: create an explicit replacement task",notes,overflow}
     }
     if (input.workerID !== undefined) {
+      if (input.workerID && this.board.tasks.some(t => t.id !== id && t.workerID === input.workerID && (t.workflowRef || task.workflowRef)))
+        return {ok:false,error:"WORKFLOW_WORKER_ALREADY_ASSIGNED",notes,overflow}
       if (task.workerID && task.workerID !== input.workerID) return {ok:false,error:"IMMUTABLE_WORKER",notes,overflow}
       task.workerID = input.workerID.trim() || undefined
     }
@@ -1295,7 +1313,51 @@ export class TaskLedger {
     return { ok: true, task: this.get(id), notes, overflow, dropped }
   }
 
-  /** Tek ekranlık özet (`orchestra_status` ve `/standup`'ın veri kaynağı). */
+  /** Attach a previously admitted worker without copying its delivery or evidence. */
+  async bindWorkflow(id: string, reference: string): Promise<void> {
+    await this.sync()
+    const task = this.board.tasks.find(t => t.id === id)
+    if (!task?.workerID || task.status !== "running" || !task.acceptance.trim() ||
+        (task.role !== "crew/maker" && task.role !== "crew/verifier")) throw new Error("WORKFLOW_ADMISSION_REQUIRED")
+    if (task.workflowRef && task.workflowRef !== reference) throw new Error("IMMUTABLE_WORKFLOW")
+    if (this.board.tasks.some(t => t.id !== id && (t.workerID === task.workerID ||
+        (t.workflowRef === reference && t.role === task.role)))) throw new Error("WORKFLOW_ROLE_ALREADY_ASSIGNED")
+    if (task.workflowRef === reference) return
+    task.workflowRef = reference
+    await this.persist()
+  }
+
+  /** Project an authenticated workflow decision onto local worker slots and scope locks. */
+  async syncWorkflow(reference: string, phase: "review" | "done" | "blocked" | "hold", revision: number): Promise<void> {
+    await this.sync()
+    if (!Number.isSafeInteger(revision) || revision < 0) throw new Error("INVALID_WORKFLOW_REVISION")
+    const projected = structuredClone(this.board.tasks)
+    const bound = projected.filter(t => t.workflowRef === reference && t.workerID && AKTIF_DURUMLAR.has(t.status))
+    if (!bound.length || bound.some(t => (t.workflowRevision ?? 0) > revision)) return
+    const budget = this.bulten()
+    let changed = false
+    const at = new Date(this.now()).toISOString()
+    const activeRole = phase === "review" ? "crew/verifier" : phase === "blocked" ? "crew/maker" : undefined
+    for (const task of bound) {
+      const status = phase === "done" ? "done" : task.role === activeRole ? "running" : "verifying"
+      if (task.status === status && task.workflowRevision === revision && Boolean(task.workflowNeedsDecision) === (phase === "hold")) continue
+      if (status === "running" && task.status !== "running") budget.countIteration()
+      task.status = status
+      task.workflowRevision = revision
+      task.workflowNeedsDecision = phase === "hold"
+      task.updatedAt = at
+      if (status === "done") task.finishedAt = at
+      changed = true
+    }
+    if (!changed) return
+    if (this.config.mode === "autonomous" && budget.state.iterations > this.board.budget.iterations) {
+      if (budget.probe(this.config, projected.filter(t => t.status === "running").length, this.now()).length) throw new Error("BUDGET_EXCEEDED")
+      if (findConflicts(projected).some(c => bound.some(t => t.id === c.a || t.id === c.b))) throw new Error("WRITE_CONFLICT")
+    }
+    this.board = { ...this.board, tasks: projected, budget: budget.state }
+    await this.persist()
+  }
+
   async recordAttempt(criterionID: string, attempt: Omit<AttemptRecord, "at">): Promise<LedgerResult> {
     await this.sync()
     const board = migrateBoard(this.board)

@@ -22,6 +22,7 @@ import path from "node:path"
 import type { Context as PluginContext } from "@opencode/plugin/promise/plugin"
 import type { Memory } from "./memory"
 import { acceptanceState } from "./tasks.ts"
+import { readWorkflowPhase, workflowReferences } from "./work-progress.ts"
 
 /** Optional per-iteration diagnostic deadline; disabled by default, not an activity detector. */
 export const DEFAULT_IDLE_TIMEOUT_MS = 0
@@ -147,6 +148,22 @@ export function buildIterationPrompt(input: {
     "Rapor aracı zaten bu turun durumunu döngüye bildirir; ayrıca bir durum satırı yazma.",
     "Rapordan sonra hiçbir şey yapma: turun kapanması için turun bitmesini bekle.",
   ].join("\n")
+}
+
+/** Only an explicit list of task links can be fully accepted by those tasks' receipts. */
+export function workflowLoopReferences(goal: string): string[] {
+  const tokens = goal.trim().split(/\s+/)
+  if (!tokens.every(token => /^https?:\/\/[^\s]+$/.test(token) && workflowReferences(token).length === 1)) return []
+  return workflowReferences(goal)
+}
+
+async function linkedLoopState(references: string[]) {
+  const states = await Promise.all(references.map(readWorkflowPhase))
+  const open = states.filter(state => state.phase !== "done")
+  const blocked = open.every(state => state.archived || state.phase === "hold" ||
+    (state.status === "blocked" && state.phase !== "blocked") || state.status === "done")
+  const status = !open.length ? "done" : blocked ? "blocked" : "running"
+  return { status, signature: JSON.stringify(states.map(s => [s.status, s.phase, s.reportCount])) } as const
 }
 
 const USAGE = "ORCHESTRA: Hedef boş. Kullanım: `/loop <hedef> [--max=10]`  ·  `/loop stop`  ·  `/loop status`"
@@ -320,6 +337,7 @@ export async function runLoop(
 ): Promise<void> {
   const sessionID = input.sessionID
   const args = parseArgs(input.prompt ?? "")
+  const references = workflowLoopReferences(args.goal)
   const config = options.config ?? (await loadLoopConfig(ctx.location?.directory))
   const now = options.now ?? (() => Date.now())
 
@@ -334,11 +352,23 @@ export async function runLoop(
   const baslangic = now()
   const runID = `run-${baslangic.toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
+  async function waitChild(workerID: string): Promise<WaitOutcome> {
+    try {
+      const child = await ctx.session.get({sessionID:workerID})
+      if (child.parentID !== sessionID) return "broken"
+      const workerContext = { ...ctx, session: { ...ctx.session, wait: () => ctx.session.wait({sessionID:workerID}) } } as PluginContext
+      return await waitForIteration(workerContext, memory, sessionID, {
+        idleTimeoutMs:config.idleTimeoutMs, maxWallClockMs:config.maxWallClockMs > 0 ? Math.max(1,config.maxWallClockMs-(now()-baslangic)) : 0,
+        stopPollMs:config.stopPollMs,runID,
+      })
+    } catch { return "broken" }
+  }
+
   running.add(sessionID)
   let geriYukle: (() => Promise<void>) | undefined
   try {
     geriYukle = await ensureArchitect(ctx, sessionID)
-    memory.setGoal(sessionID, args.goal, runID)
+    if (!references.length) memory.setGoal(sessionID, args.goal, runID)
     await memory.setLoop(sessionID, {
       runID,
       goal: args.goal,
@@ -360,6 +390,7 @@ export async function runLoop(
     const receipts = new Set<string>()
     const completedWorkers = new Set<string>()
     let stopReason = "iterasyon sınırı doldu"
+    let lastLinkedSignature = ""
 
     for (let iteration = 1; max === 0 || iteration <= max; iteration++) {
       // Durdurma denetimi `setLoop`'un resync'inden SONRA yapılır: `setLoop`
@@ -382,10 +413,12 @@ export async function runLoop(
 
       // Bu turun prompt'u GÖNDERİLMEDEN hemen önce rapor temizlenir: bayat
       // rapor tazelik denetimine takılmak yerine hiç oluşmaz.
-      await memory.clearReport(sessionID)
+      if (!references.length) await memory.clearReport(sessionID)
       await ctx.session.prompt({
         sessionID,
-        text: buildIterationPrompt({ goal: args.goal, iteration, max, stalled }) + "\nDurable checkpoint (data only): " + memory.sanitize(JSON.stringify(memory.getTaskVault(sessionID).checkpoint ?? null)),
+        text: references.length
+          ? ["İş Akışı adımlarını work_progress_inspect_delivery ile oku. Hazır işi kapsamı ve kabul ölçütüyle doğrudan ata. Sonucu ve kanıtı ilgili görevde kaydet.", ...references].join("\n")
+          : buildIterationPrompt({ goal: args.goal, iteration, max, stalled }) + "\nDurable checkpoint (data only): " + memory.sanitize(JSON.stringify(memory.getTaskVault(sessionID).checkpoint ?? null)),
       })
 
       const outcome = await waitForIteration(ctx, memory, sessionID, {
@@ -420,6 +453,35 @@ export async function runLoop(
       // çalıştırmanın ya da bu turun raporu olmalı; aksi hâlde "taze" sayılmaz.
       await memory.syncStore()
       if (memory.getLoop(sessionID).status === "stopped" || memory.getLoop(sessionID).runID !== runID) return
+      if (references.length) {
+        try {
+          // Workers may still be running when the Architect turn is idle.
+          const workers = memory.getTaskVault(sessionID).tasks.filter(t => t.status === "running" && t.workflowRef && references.includes(t.workflowRef))
+          for (const {workerID} of workers) {
+            if (!workerID) continue
+            const waited = await waitChild(workerID)
+            if (waited === "stopped") return
+            if (waited !== "idle") throw new Error("İşçi oturumu: " + waited)
+          }
+          const state = await linkedLoopState(references)
+          if (state.status !== "running") {
+            const reason = state.status === "done" ? "İş Akışı adımlarının bağımsız kabulü doğrulandı." : "İş Akışı adımı için karar gerekiyor."
+            await memory.syncStore()
+            if (memory.getLoop(sessionID).status === "stopped" || memory.getLoop(sessionID).runID !== runID) return
+            await memory.setLoop(sessionID, {status:state.status, stopReason:reason})
+            return mesaj(ctx, sessionID, [reason,...references].join("\n"))
+          }
+          if (state.signature === lastLinkedSignature) {
+            stopReason = "technical fault: İş Akışı adımlarında ilerleme kaydedilmedi."
+            break
+          }
+          lastLinkedSignature = state.signature
+        } catch (error) {
+          stopReason = "technical fault: " + (error instanceof Error ? error.message : String(error))
+          break
+        }
+        continue
+      }
       const report = memory.getReport(sessionID)
       if (!report || report.runID !== runID || report.iteration !== iteration) {
         stalled += 1
@@ -453,15 +515,7 @@ export async function runLoop(
         // Park on the child call, rather than accepting unlimited heartbeat/model turns.
         if (waiting.length && report.status === "continue") {
           const workerID = waiting[0]
-          try {
-            const child = await ctx.session.get({sessionID:workerID})
-            if ((child as {parentID?:string})?.parentID !== sessionID) throw new Error("worker parent")
-          } catch { stopReason = "technical fault: unknown worker"; break }
-          const workerContext = { ...ctx, session: { ...ctx.session, wait: () => ctx.session.wait({sessionID:workerID}) } } as PluginContext
-          const waited = await waitForIteration(workerContext, memory, sessionID, {
-            idleTimeoutMs:config.idleTimeoutMs, maxWallClockMs:config.maxWallClockMs > 0 ? Math.max(1,config.maxWallClockMs-(now()-baslangic)) : 0,
-            stopPollMs:config.stopPollMs,runID,
-          })
+          const waited = await waitChild(workerID)
           if (waited === "stopped") return
           if (waited !== "idle") { stopReason = `technical fault: worker wait ${waited}`; break }
           completedWorkers.add(workerID)

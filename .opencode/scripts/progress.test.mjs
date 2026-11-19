@@ -5,15 +5,15 @@ import {join} from "node:path"
 import {tmpdir} from "node:os"
 import {Memory} from "../plugins/orchestra/memory.ts"
 import {TaskLedger,acceptanceState,blockedCriterion,pruneTasks} from "../plugins/orchestra/tasks.ts"
-import {runLoop,DEFAULT_LOOP_CONFIG} from "../plugins/orchestra/loop.ts"
+import {runLoop,DEFAULT_LOOP_CONFIG,workflowLoopReferences} from "../plugins/orchestra/loop.ts"
 import {registerTools} from "../plugins/orchestra/tools.ts"
 const verification={commit:"a".repeat(40),command:"npm test",exitCode:0,artifact:"result.log",reviewer:"verifier"}
-async function api(memory){
+async function api(memory, workflowLinked){
  const tools={}
  const ctx={tool:{transform:async fn=>fn({namespace(){},add:t=>tools[t.name]=t})},session:{
   get:async({sessionID})=>sessionID==="s"?{agent:"architect"}:{parentID:"s"},interrupt:async()=>{},synthetic:async()=>{},wait:async()=>{},prompt:async()=>{},
  }}
- await registerTools(ctx,memory)
+ await registerTools(ctx,memory,workflowLinked)
  const call=async(name,input)=> (await tools[name].execute(input,{sessionID:"s",agent:"architect"})).content
  return {ctx,call}
 }
@@ -23,6 +23,68 @@ async function setup(t){
  return {dir,memory,ledger}
 }
 const attempt=(id,outcome="failed",blockerID="compile")=>({id,blockerID,outcome,evidence:[`${id}.log`]})
+test("linked workers keep durable admission without a second delivery or criterion history", async t => {
+  const {dir, memory, ledger} = await setup(t)
+  const workflowRef = "http://127.0.0.1:5173/is-akisi?project=p&work=w&task=t"
+  const maker = await ledger.add({workflowRef, title:"make", role:"crew/maker", acceptance:"suite passes", writeSurface:["src"]})
+  assert.equal(maker.ok, true)
+  assert.equal((await ledger.update({id:maker.task.id, status:"running", workerID:"m"})).ok, true)
+  assert.equal((await ledger.add({workflowRef, title:"other", role:"crew/maker", acceptance:"suite passes"})).ok, false)
+  await ledger.syncWorkflow(workflowRef, "review", 1)
+  assert.equal(ledger.get(maker.task.id).status, "verifying")
+  const verifier = await ledger.add({workflowRef, title:"check", role:"crew/verifier", acceptance:"suite passes"})
+  assert.equal((await ledger.update({id:verifier.task.id, status:"running", workerID:"m"})).ok, false)
+  assert.equal((await ledger.update({id:verifier.task.id, status:"running", workerID:"v"})).ok, true)
+  await ledger.syncWorkflow(workflowRef, "blocked", 2)
+  const restored = await Memory.open(dir)
+  const resumed = await TaskLedger.open(restored, undefined, "s")
+  await resumed.syncWorkflow(workflowRef, "review", 1)
+  assert.deepEqual(resumed.running().map(task => task.workerID), ["m"])
+  const {call} = await api(restored, async () => true)
+  assert.match(await call("task", {id:maker.task.id,status:"done",evidence:["copy"]}), /İş Akışı/)
+  assert.match(await call("report", {status:"continue",summary:"copy"}), /İş Akışı/)
+  assert.equal(restored.getReport("s"), undefined)
+  await resumed.syncWorkflow(workflowRef, "review", 3)
+  assert.deepEqual(resumed.running().map(task => task.workerID), ["v"])
+  await resumed.syncWorkflow(workflowRef, "hold", 4)
+  assert.deepEqual(resumed.running(), [])
+  assert.ok(resumed.list().every(task => task.workflowNeedsDecision))
+  await resumed.syncWorkflow(workflowRef, "blocked", 5)
+  assert.deepEqual(resumed.running().map(task => task.workerID), ["m"])
+  assert.ok(resumed.list().every(task => !task.workflowNeedsDecision))
+  await resumed.syncWorkflow(workflowRef, "done", 7)
+  await resumed.syncWorkflow(workflowRef, "blocked", 2)
+  assert.deepEqual(resumed.running(), [])
+  assert.deepEqual(resumed.defter().criteria, [])
+  assert.ok(resumed.list().every(task => task.status === "done" && task.evidence.length === 0))
+})
+test("explicit task-link loop reads each canonical acceptance without a local report", async t => {
+  const {memory} = await setup(t)
+  const {ctx} = await api(memory)
+  const ref = "http://127.0.0.1:5173/is-akisi?project=p&work=w&task="
+  assert.deepEqual(workflowLoopReferences("also ship the build " + ref + "a"), [])
+  let turns = 0
+  ctx.session.prompt = async ({text}) => {
+    assert.match(text, /work_progress_inspect_delivery/)
+    assert.doesNotMatch(text, /orchestra_report|orchestra_task|orchestra_lesson/)
+    turns++
+  }
+  const fetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = fetch })
+  globalThis.fetch = async url => {
+    const link = new URL(new URL(url).searchParams.get("ref"))
+    const id = link.searchParams.get("task")
+    const done = id === "a" || turns > 1
+    const reports = [{role:"maker",id:"d",actor:"m"}]
+    if (done) reports.push({role:"verifier",id:"v",actor:"v",deliveryId:"d",outcome:"passed"})
+    return Response.json({projectId:"p",revision:turns,task:{id,status:done ? "done" : "review",reports}})
+  }
+  await runLoop(ctx,memory,{sessionID:"s",prompt:ref+"a "+ref+"b --max=3"})
+  assert.equal(turns,2)
+  assert.equal(memory.getLoop("s").status,"done")
+  assert.equal(memory.getReport("s"),undefined)
+  assert.deepEqual(memory.getTaskVault("s").tasks,[])
+})
 test("third completed failure survives rename, prune and reopen; independent work proceeds",async t=>{
  const {dir,memory,ledger}=await setup(t)
  const a=await ledger.add({title:"a",criterionID:"A",acceptance:"build"})

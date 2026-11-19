@@ -162,10 +162,11 @@ test("transformIndexText: tek bir kayma sessizce gecmez", () => {
   assert.throws(() => transformIndexText(MEMORY_ANCHOR), /0 kez/)
 })
 
-test("mirrorPlan: yalniz alti kaynak dosyasi, yalniz index.ts kirpilir", () => {
+test("mirrorPlan: gorev araclari dahil kaynak dosyalari, yalniz index.ts kirpilir", () => {
   const root = tempRoot()
   const plan = mirrorPlan(root, join(root, ".orchestra-runtime"))
   assert.deepEqual(plan.map((item) => item.file), PLUGIN_SOURCE_FILES)
+  assert.ok(plan.some(item => item.file === "work-progress.ts"))
   assert.deepEqual(plan.filter((item) => item.transformed).map((item) => item.file), ["index.ts"])
   const sourceRoot = join(resolve(root), ".opencode", "plugins", "orchestra") + sep
   const memoryData = join(resolve(root), ".opencode", "memory") + sep
@@ -444,7 +445,7 @@ test("verifyPluginInventory: yerlesik kimlik her durumda reddedilir, hata metni 
   }
 })
 
-const STEPS_OK = { tools: "ok", loop: "ok", fallback: "ok", tasks: "ok" }
+const STEPS_OK = { tools: "ok", loop: "ok", fallback: "ok", tasks: "ok", "work-progress": "ok" }
 
 test("verifyDiagnostics: dort adim da tam ok olmali", () => {
   const out = verifyDiagnostics({ diagnostics: { steps: { ...STEPS_OK }, warns: [] } })

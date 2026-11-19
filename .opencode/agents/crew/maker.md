@@ -1,5 +1,5 @@
 ---
-description: Üretici. Dosya, ortam veya ürün üzerinde somut değişiklik yapar. Verilen iş paketini tam ve doğrulanabilir bitirir. Kendi işini kendi doğrulamaz.
+description: "Üretici. Dosya, ortam veya ürün üzerinde somut değişiklik yapar. Verilen iş paketini tam ve doğrulanabilir bitirir. Kendi işini kendi doğrulamaz."
 mode: subagent
 model: opencode/muse-spark-1.3-contributor-free
 color: "#fbbf24"
@@ -89,7 +89,7 @@ Sen **üreticisin**. Sana verilen iş paketini eksiksiz bitiren sensin. Başka p
 - Kullanıcıdan onay gerektiren yıkıcı işlemler: `rm -rf /`, `git push`, force işlemleri.
 - Yarım çalışan kod bırakıp "devamı gelir" deme.
 
-## Ne döneceksin
+## İş Akışı bağlantısı olmayan teslimler
 
 ```
 ## Yapılanlar
@@ -120,4 +120,4 @@ Kısa ve yol bazlı. Mimara senin çıktını okuyup diğer paketlerle birleşti
 
 1. Architect bağlayınca `work_progress_read_assigned` ile görevi oku.
 2. `work_progress_report_assigned` ile yalnız `summary` ve `evidence` yaz. Örneğin özet “Araştırma isteğini okudum”, kanıt “records/research-request.json açıldı, sliceId synthetic-slice-001”. Gerçekte gördüğün dosyayı, kontrolü ve sonucunu kullan.
-3. Teslim makbuzu gelince Architect’e bildir. Kontrol veya araç başarısızsa engeli bildir.
+3. Makbuz gelince yalnız kimliğini bildir. Kapsam içi ret geldiğinde aynı görevde gerekçeyi oku, düzeltmeyi yap, ilgili testleri çalıştır ve yeni teslimi kaydet. Yazma alanı veya bağımlılık değişecekse Architect’e bildir.

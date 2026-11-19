@@ -1,0 +1,137 @@
+specification {
+  element person
+  element system
+  element component
+}
+model {
+  user = person 'Kullanıcı'
+  library = system 'İş Akışı' {
+    workProgressApi = component 'İş Akışı · Görev, teslim ve kabul' {
+      description 'Oturuma özel görev erişimi, bağımlılık ve güncel teslimi doğrular.'
+    }
+    database = component 'SQLite · Kalıcı teslim ve kararlar'
+  }
+  library.workProgressApi -> library.database 'Teslimi, kararı ve durumu tek işlemde kaydeder'
+
+  orchestra = system 'Orchestra / OpenCode' {
+    observer = component 'Observer · Oturum devri' {
+      description 'Onaylı işi hedef proje ve kök Architect oturumuna yönlendirir. Oturum olaylarını izler.'
+    }
+    architect = component 'Architect · İş sahibi' {
+      description 'Görev referansını okur, kabul koşulunu ve yazma kapsamını belirler. Teslimden sonra bağımsız doğrulamayı bağlar.'
+    }
+    ledger = component 'Yerel atama ve yazma alanı' {
+      description 'Oturumu pakete bağlar, bağımlılıkları ve çakışan yazma alanlarını denetler. Teslim ve karar İş Akışı kaydından okunur.'
+    }
+    maker = component 'Maker · Teslim' {
+      description 'Atanmış paketi ve izinli dosyaları okur. Ürünü değiştirir, test eder ve teslim kanıtını kaydeder.'
+    }
+    verifier = component 'Verifier · Bağımsız karar' {
+      description 'Güncel teslimi, kapsamı ve test kanıtını okur. Kabul veya ret yazar; kodu düzeltmez.'
+    }
+    workspace = component 'Proje / Git çalışma ağacı' {
+      description 'Kod, yapılandırma, çıktı ve testlerin bulunduğu gerçek yazma alanı.'
+    }
+    runtime = component 'Orchestra eklentisi · Oturum bağlamı' {
+      description 'Atanmış normal İş Akışı görevinde gereksiz ders ve görev özeti eklemez. Yerel döngü kendi kontrol kaydını kullanır.'
+    }
+    assignedTools = component 'Orchestra eklentisi · Atama ve rapor araçları' {
+      description 'work-progress.ts: Architect görev bağlantısını ve kapsamı atar. Araç, oturumu ve rolü doğrular. Maker teslimini ve Verifier kararını aynı görevde kaydeder.'
+    }
+    projectTools = component 'OpenCode · Dosya, komut ve test araçları' {
+      description 'Maker görev için gerekli dosyaları okur ve yetkili kapsamda düzenler. Verifier kabul ölçütüne göre test, build veya çalışma kontrolü yürütür. Komut ve testler göreve göre seçilir.'
+    }
+    memory = component 'Orchestra hafızası' {
+      description 'Yerel dersler ve /loop raporları. Tek başına bir ürün teslimini kabul etmez.'
+    }
+  }
+  user -> orchestra.architect 'Proje sohbetinde görev bağlantısı ve kapsam'
+  user -> orchestra.observer 'Onaylı kapsam ve görev bağlantısı'
+  orchestra.observer -> orchestra.architect 'Doğru kök oturuma iletir'
+  orchestra.architect -> orchestra.ledger 'Paket, sahip, bağımlılık ve yazma alanı'
+  orchestra.architect -> orchestra.maker 'İzinli paketi ve kabul koşulunu verir'
+  orchestra.architect -> orchestra.verifier 'Ayrı doğrulama atar'
+  orchestra.architect -> orchestra.memory 'Dersleri okur, gerekiyorsa döngü raporu yazar'
+  orchestra.architect -> library.workProgressApi 'Görev durumunu ve karar makbuzunu okur'
+  orchestra.verifier -> orchestra.architect 'Kapsam veya sahiplik değişikliği gerektiren ret'
+  orchestra.assignedTools -> orchestra.verifier 'Yeni teslim için atanmış doğrulayıcıyı çağırır'
+  orchestra.assignedTools -> orchestra.maker 'Kapsam içi ret gerekçesiyle aynı Maker oturumunu çağırır'
+  orchestra.maker -> orchestra.ledger 'orchestra_status ile salt okunur'
+  orchestra.verifier -> orchestra.ledger 'orchestra_status ile salt okunur'
+  orchestra.maker -> orchestra.assignedTools 'Atanmış görevi okur ve teslim yazar'
+  orchestra.verifier -> orchestra.assignedTools 'Güncel teslimi okur ve karar yazar'
+  orchestra.architect -> orchestra.assignedTools 'Görev bağlantısı ve rolü bağlar'
+  orchestra.assignedTools -> orchestra.ledger 'Oturum, rol ve yazma alanı denetimi'
+  orchestra.assignedTools -> library.workProgressApi 'Atanmış görevle sınırlı okuma ve teslim'
+  orchestra.runtime -> orchestra.memory 'Yerel döngü ve bağımsız oturum bağlamı'
+  orchestra.runtime -> orchestra.architect 'Yerel çalışma için uygun dersleri iletir'
+  orchestra.runtime -> orchestra.maker 'Yerel çalışma için uygun dersleri iletir'
+  orchestra.runtime -> orchestra.verifier 'Yerel çalışma için uygun dersleri iletir'
+  orchestra.maker -> orchestra.projectTools 'Dosya işlemleri ve teslim testleri'
+  orchestra.verifier -> orchestra.projectTools 'Bağımsız test ve kapsam kontrolü'
+  orchestra.projectTools -> orchestra.workspace 'Okuma, yetkili yazma, komut ve test çalıştırma'
+  library.workProgressApi -> orchestra.assignedTools 'Görev, teslim veya karar makbuzu'
+}
+
+views {
+  dynamic view orchestraContext {
+    title 'Orchestra · Rol bağlamı ve yerel atama'
+    orchestra.architect -> orchestra.assignedTools 'Görev bağlantısı ve teslim sahibi'
+    orchestra.assignedTools -> orchestra.ledger 'Oturum ataması ve yazma alanı'
+    orchestra.maker -> orchestra.assignedTools 'Kendi görevini ve kabul ölçütünü okur'
+    orchestra.verifier -> orchestra.assignedTools 'Kendi atamasını ve güncel teslimi okur'
+    orchestra.assignedTools -> library.workProgressApi 'Kalıcı görev kaydını getirir'
+    autoLayout LeftRight
+  }
+  dynamic view orchestraExecution {
+    title 'Orchestra · Komut, test, teslim ve kabul'
+    user -> orchestra.architect 'Görev bağlantısı ve onaylı kapsam'
+    orchestra.architect -> orchestra.assignedTools 'Görev bağlantısı ve yazma alanıyla Maker ataması'
+    orchestra.assignedTools -> orchestra.ledger 'Paket, çalışan oturum, rol ve yazma alanı'
+    orchestra.maker -> orchestra.assignedTools 'read_assigned, görevi okur'
+    orchestra.maker -> orchestra.projectTools 'Dosya işlemleri ve görev testleri'
+    orchestra.projectTools -> orchestra.workspace 'Komut çalışır; dosya farkı ve test çıktısı oluşur'
+    orchestra.maker -> orchestra.assignedTools 'report_assigned, teslim özeti ve kanıt'
+    orchestra.assignedTools -> library.workProgressApi 'Teslim kaydı, durum incelemede'
+    orchestra.architect -> orchestra.assignedTools 'Bağımsız Verifier ataması'
+    orchestra.verifier -> orchestra.assignedTools 'read_assigned, güncel Maker teslimi'
+    orchestra.verifier -> orchestra.projectTools 'Teslimin kapsamını ve testleri kontrol eder'
+    orchestra.verifier -> orchestra.assignedTools 'verify_assigned, okunan teslim için karar'
+    orchestra.assignedTools -> library.workProgressApi 'Güncel teslim, bağımsız aktör ve tek karar denetimi'
+    library.workProgressApi -> library.database 'Kabulü, kanıtı ve durumu kaydeder'
+    library.workProgressApi -> orchestra.assignedTools 'Karar makbuzu döner'
+    orchestra.architect -> library.workProgressApi 'Kararı geri okur'
+    autoLayout LeftRight
+  }
+  dynamic view orchestraRecovery {
+    title 'Orchestra · Ret, engel ve yeniden teslim'
+    orchestra.verifier -> orchestra.assignedTools 'Teslime bağlı ret ve kanıt'
+    orchestra.assignedTools -> library.workProgressApi 'Ret, geçerli atama ve son teslim kontrolünden geçer'
+    library.workProgressApi -> library.database 'Ret ve engel durumunu kaydeder'
+    orchestra.assignedTools -> orchestra.verifier 'Yeni teslim için atanmış doğrulayıcıyı çağırır'
+  orchestra.assignedTools -> orchestra.maker 'Kapsam içi ret gerekçesini teslim sahibine iletir'
+    orchestra.maker -> orchestra.projectTools 'Yetkili alanda düzeltir ve testi tekrar çalıştırır'
+    orchestra.maker -> orchestra.assignedTools 'Aynı görevde yeni teslim ve test kanıtı'
+    orchestra.assignedTools -> orchestra.verifier 'Düzeltmeye ait yeni teslimi bildirir'
+    orchestra.verifier -> orchestra.assignedTools 'Yeni teslimi bağımsız olarak kontrol eder'
+    autoLayout LeftRight
+  }
+  dynamic view orchestraEscalation {
+    title 'Orchestra · Kapsam değişikliği'
+    orchestra.verifier -> orchestra.assignedTools 'Değişmesi gereken kapsamı ve gerekçesini kaydeder'
+    orchestra.assignedTools -> library.workProgressApi 'Kararı teslimle ilişkilendirir'
+    orchestra.verifier -> orchestra.architect 'Sahiplik veya kapsam kararı gerekir'
+    orchestra.architect -> library.workProgressApi 'Güncel teslimi ve gerekçeyi okur'
+    orchestra.architect -> orchestra.assignedTools 'Mevcut kapsamda devam kararı ve ret makbuzu'
+    orchestra.assignedTools -> orchestra.maker 'Karar kaydedilince aynı Maker devam eder'
+    autoLayout LeftRight
+  }
+
+  view orchestraDelivery {
+    title 'Orchestra · Görev, teslim ve kabul'
+    include user, orchestra.observer, orchestra.architect, orchestra.ledger,
+      orchestra.maker, orchestra.verifier, orchestra.workspace, orchestra.memory, orchestra.runtime, orchestra.assignedTools, orchestra.projectTools,
+      library.workProgressApi, library.database
+    autoLayout LeftRight
+  }
+}

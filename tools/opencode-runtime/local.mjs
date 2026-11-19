@@ -521,7 +521,7 @@ async function cmdStart(ctx) {
     die(
       `yerel runtime HAZIR degil (${failure ?? "zaman asimi"}). Kabul olcutu: bizim sunucu + ` +
         `nonce/proje/hash dogrusu + "orchestra.project-local" etkin olmasi + ` +
-        `diagnostics.steps (tools/loop/fallback/tasks). Gunluk: ${paths.serverLog}`,
+        `diagnostics.steps (tools/loop/fallback/tasks/work-progress). Gunluk: ${paths.serverLog}`,
     )
   }
 

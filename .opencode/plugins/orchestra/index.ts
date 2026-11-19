@@ -26,7 +26,7 @@ import path from "node:path"
 import type { Plugin } from "@opencode/plugin/promise/plugin"
 import { registerTools } from "./tools.ts"
 import { registerWorkProgress } from "./work-progress.ts"
-import { registerLoop } from "./loop.ts"
+import { registerLoop, workflowLoopReferences } from "./loop.ts"
 import { registerFallback, type FallbackHandle } from "./fallback.ts"
 import { TaskLedger } from "./tasks.ts"
 
@@ -445,8 +445,9 @@ const plugin: Plugin = {
     // CANLI okunur (mtime karşılaştırması) — `capture`/`fallback` ile aynı
     // desen: `orchestra.json` değişince plugin yeniden yüklenmeden geçerli olur.
     await record("tasks", () => TaskLedger.open(memory, ctx.location.directory, "tanilama"))
-    await record("tools", () => registerTools(ctx, memory))
     const disposeWorkProgress = await record("work-progress", () => registerWorkProgress(ctx, memory))
+    const linked = (sessionID: string) => disposeWorkProgress?.isLinked(sessionID) ?? Promise.resolve(false)
+    await record("tools", () => registerTools(ctx, memory, linked))
     await record("loop", () => registerLoop(ctx, memory))
     const fallback = await record("fallback", async () => registerFallback(ctx, memory, ctx.location.directory))
     await memory.setDiagnostics({ startedAt: new Date().toISOString(), steps, detail })
@@ -464,33 +465,27 @@ const plugin: Plugin = {
     // çalıştırılmış bir hata değil, veridir. Taranmasaydı hafıza kendi
     // gürültüsüyle dolar ve gerçek `shell:TipHatasi:TS2345` sayacı eşiği geçerdi.
     const observeHook = await ctx.tool.hook("execute.after", async (event) => {
-      if (SELF_TOOLS.has(event.tool)) return
+      try {
+        if (SELF_TOOLS.has(event.tool) || event.tool.startsWith("work_progress_")) return
 
-      if (event.status === "error") {
-        const message = event.error?.message ?? ""
-        if (!message || ABORT.test(message)) return
-        memory.capture({ tool: event.tool, role: event.agent, message: redact(message) })
+        let failure: { sample: string; klass?: string } | undefined
+        if (event.status === "error") {
+          const message = event.error?.message ?? ""
+          if (!message || ABORT.test(message)) return
+          failure = { sample: redact(message) }
+        } else {
+          const text = resultText(event.result)
+          if (!text) return
+          await refreshCapture()
+          if (!shouldScanOutput({ tool: event.tool, status: "completed", text }, capture.scanTools).scan) return
+          failure = extractFailure(text, { maxSampleChars: capture.maxSampleChars, redact: capture.redact })
+        }
+        if (!failure || await linked(event.sessionID)) return
+        memory.capture({ tool: event.tool, role: event.agent, message: failure.sample, klass: failure.klass })
         void memory.persistCapture().catch(() => undefined)
-        return
+      } catch {
+        /* Observation must never interrupt the tool or the model call. */
       }
-
-      const text = resultText(event.result)
-      if (!text) return
-      // Yapılandırma yalnız burada, yani taranabilir aday çıktıda kontrol edilir:
-      // `status === "error"` yolu (en sık yol) hiç dosya istemine dokunmaz.
-      await refreshCapture()
-      if (!shouldScanOutput({ tool: event.tool, status: "completed", text }, capture.scanTools).scan) return
-
-      const failure = extractFailure(text, { maxSampleChars: capture.maxSampleChars, redact: capture.redact })
-      if (!failure) return
-
-      memory.capture({
-        tool: event.tool,
-        role: event.agent,
-        message: failure.sample,
-        klass: failure.klass,
-      })
-      void memory.persistCapture().catch(() => undefined)
     })
 
     // --- 3a. Görev bağlamını kaydet + model geri dönüşü -----------------
@@ -508,8 +503,8 @@ const plugin: Plugin = {
     // kararı bir sonraki tura kalıyordu. Sıra: önce karar, sonra model isteği.
     const promptHook = await ctx.session.hook("prompt", async (event) => {
       try {
-        memory.setGoal(event.sessionID, event.prompt.text ?? "", event.messageID)
         await fallback?.handle.onTurnStart(event.sessionID)
+        if (!await linked(event.sessionID)) memory.setGoal(event.sessionID, event.prompt.text ?? "", event.messageID)
       } catch {
         // Hafıza ve dayanıklılık ASLA bir model çağrısını bozamaz: hata burada
         // yutulur, istek normal akışta gönderilir.
@@ -545,6 +540,10 @@ const plugin: Plugin = {
     // --- 3c. Her kullanıcı turunda bir kez hafıza enjeksiyonu ------------
     const contextHook = await ctx.session.hook("context", async (event) => {
       try {
+        if (await linked(event.sessionID)) {
+          const loop = memory.getLoop(event.sessionID)
+          if (loop.status !== "running" || workflowLoopReferences(loop.goal ?? "").length) return
+        }
         // Sıra önemli: dayanıklılık önce karar verir (model geri dönüşü),
         // sonra hafıza tazelenir ve blok enjekte edilir.
         await memory.sync()

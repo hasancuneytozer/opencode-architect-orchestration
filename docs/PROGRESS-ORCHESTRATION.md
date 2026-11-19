@@ -6,6 +6,14 @@ its historical name, it does not measure inactivity and must not cut off healthy
 Role frontmatter has no `steps` limits. Concurrency remains two; write locks,
 dependencies, verification, report role gates and optional explicit caps remain.
 
+## Workflow tasks
+
+The Architect starts a child session and uses `work_progress_assign` with the task link, child session ID, write surface and acceptance criterion. Maker records the delivery and test evidence once on that task. An independent Verifier reads the current delivery and records its decision. An in-scope rejection returns to the same Maker. A change in ownership or write scope requires an Architect decision. The local admission record preserves session identity, concurrency and write-surface checks.
+
+After an interruption, inspect the task using its original link. Read the latest Maker receipt and the Verifier decision for that receipt before continuing. An interrupted notification can be retried by assigning the same admitted worker again. To continue a held correction inside its current scope, use `work_progress_resume_correction` with the latest rejection ID and the decision. Expanded scope requires a new task.
+
+## Standalone local tasks
+
 `orchestra_task` may create a title-only draft. Bind nonempty acceptance while
 still planned, before starting work. Once bound, acceptance is immutable and
 has a stable `criterionID`. Drafts cannot start or complete, and prevent overall done.

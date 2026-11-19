@@ -19,7 +19,7 @@ hiçbir şey çalıştırmana gerek yok.
 | `.orchestra-runtime/` altına sabitlenmiş `@opencode` paketlerini kurar | Kök `package.json` bağımlılıklarını değiştirmez |
 | Yalnızca indirilmiş `dist` chunk'ını bayt-doğrulamalı yamalar | Resmî EXE yeniden derlemez, upstream TypeScript build'ini çalıştırmaz |
 | Ayrı bir Node süreci başlatır, `127.0.0.1` üzerinde dinler | Ortak servise, başka sürece veya başka port sürecine dokunmaz |
-| Plugin'in **kodunu** kopyalar (6 `.ts`) | Kişisel veriyi, hafızayı, config'i veya `auth.json` kopyalamaz |
+| Plugin'in **kodunu** kopyalar | Kişisel veriyi, hafızayı, config'i veya `auth.json` kopyalamaz |
 | Çekirdek chunk'ını geri yükler | `git` ağacına dokunmaz; `reset`/`checkout`/`stash` **yok** |
 
 ---
@@ -102,8 +102,8 @@ sinyalleşmez. `state.json`'ı başkası yazmışsa dosyaya dokunulmaz.
 **HTTP yanıtı tek başına "hazır" demek değildir.** Sunucunun ayakta olması, proje-yerel plugin'in
 gerçekten yüklendiğini kanıtlamaz. Yükleme doğrulaması ayrı bir adımdır: `GET /api/plugin`
 çağrısında **tek bir** `orchestra.project-local` alias'inin etkin olması, özgün `orchestra`
-id'sinin **bulunmaması** ve `tools` / `loop` / `fallback` / `tasks` tanılarının `ok` olması,
-`diagnostics.steps = tools ok · loop ok · fallback ok · tasks ok`, hafıza yolunun
+id'sinin **bulunmaması** ve `tools` / `loop` / `fallback` / `tasks` / `work-progress` tanılarının `ok` olması,
+`diagnostics.steps = tools ok · loop ok · fallback ok · tasks ok · work-progress ok`, hafıza yolunun
 `ORCHESTRA_PROJECT_MEMORY` olması. Bu set tamamlanmadan "çalışıyor" denmez.
 
 ### 3. `attach`
@@ -165,7 +165,7 @@ da "opencode" adına sürece avı yoktur. Ortak servis yeniden başlatılmaz.
 `.opencode/plugins/orchestra` **yalnızca okunur**; ayna şu 6 kodu kopyalar:
 
 ```
-index.ts   memory.ts   loop.ts   fallback.ts   tasks.ts   tools.ts
+index.ts   memory.ts   loop.ts   fallback.ts   tasks.ts   tools.ts   work-progress.ts
 ```
 
 `index.ts` **iki çapaya** dönüştürülür (`singleReplace`: anchor tam olarak 1 kez geçmeli):

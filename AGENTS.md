@@ -80,7 +80,7 @@ sayı zamanla yalan olur. Raporlama gerektiğinde o anki sayıyı doğrudan `npm
 
 Plugin tanılama kanalı: `orchestra_recall` çıktısının sonunda `UYARI:` satırı varsa bir
 parça kaydedilememiştir. `state.json` içindeki `diagnostics.steps` bunun kaynağıdır.
-Beklenen değer: `tools: ok`, `loop: ok`, `fallback: ok`, `tasks: ok`.
+Beklenen değer: `tools: ok`, `loop: ok`, `fallback: ok`, `tasks: ok`, `work-progress: ok`.
 
 **Shell ile dosya düzenleme tuzağı:** Bu ortamda PowerShell'in satır bazlı kesip yapıştırma
 işlemleri defalarca sessizce başarısız oldu ya da satırları kaydırdı. Çok satırlı
@@ -105,4 +105,4 @@ canlı davranışı nasıl doğruladın. "Muhtemelen çalışır" kabul edilmez.
 ## İş Akışı bağlantıları
 
 - Çok adımlı işin planını ve bağımlılıklarını kalıcı İş Akışı grafiğinde kaydet. Ayrı teslimi olan kolları üst görevlerine bağla ve grafik adresini ilk planla paylaş.
-- Kullanıcının paylaştığı görev bağlantısını iş paketine ekle. Architect mevcut Orchestra kabul kurallarıyla işi açar ve alt oturumu bağlar. Maker ve Verifier kendi kanıtlarını İş Akışı kaydına yazar. Architect Orchestra görev defterinde kabul durumunu yönetir.
+- Kullanıcının paylaştığı görev bağlantısını iş paketine ekle. Architect mevcut Orchestra kabul kurallarıyla işi açar ve alt oturumu bağlar. Maker ve Verifier kendi kanıtlarını İş Akışı kaydına yazar. Architect kabulü aynı İş Akışı kaydındaki son teslim ve ona bağlı Verifier kararından okur. Yerel görev defteri oturum yetkisini ve yazma alanını denetler. Mimari değiştiğinde mevcut LikeC4 tanımını ve onu kullanan görünümleri birlikte güncelle.

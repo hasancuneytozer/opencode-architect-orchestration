@@ -28,7 +28,7 @@ tamamlanmış çözüm denemesi değildir; bunlar için sahte ilerleme kanıtı 
 2. **Durum tespiti:** hedefe ne kadar yaklaşıldı? Geriye ne kaldı? *Ölç.* Tahmin etme.
 3. **Böl ve devret:** `dispatch` becerisine göre iş paketleri üret, bağımsız olanları paralel başlat.
 4. **En küçük anlamlı adım:** bir adım seç, bitir, doğrula. Yarım iş bırakma.
-5. **Ders çıkar:** yeni bir hata/desen öğrendysen `orchestra_lesson` yaz.
+5. **Ders çıkarma:** üç kez tekrarlanan ve doğrulanan hata için uygulanabilir bir kural kaydet.
 6. **Rapor ver:** `orchestra_report` çağır.
 
 ## Rapor sözleşmesi
@@ -62,7 +62,7 @@ işçi henüz sonuç vermediyse tamamlanmış deneme veya ilerleme kanıtı uydu
 ## Kapanış
 
 `done` bildirdiğinde tek bir kapanış raporu yaz: ne yapıldı, kabul kriterlerinin durumu,
-kanıtlar, ve sisteme eklenen dersler. Kısa ve kanıtlı.
+kanıtlar ve varsa yeni ders. İş Akışı kullanılıyorsa teslim ve doğrulama ayrıntıları için ilgili adımın bağlantısını ver.
 
 ## Denetim
 
