@@ -1,0 +1,54 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "fallback": {
+    "enabled": true,
+    "cooldownThreshold": 3,
+    "cooldownMs": 60000,
+    "baseDelayMs": 2000,
+    "maxDelayMs": 60000,
+    "jitter": 0.25,
+    "retryNonTransient": false,
+    "chain": [
+      "opencode/ling-3.1-flash-free",
+      "opencode/nemotron-3.5-lightning-free",
+      "opencode/mimo-v2.6-flash-free"
+    ],
+    "autoSwitch": false,
+    "restoreOnRecovery": true,
+    "learnFromFailures": true,
+    "perAgent": {}
+  },
+  "budget": {
+    "maxWallClockMs": 0,
+    "maxIterations": 0,
+    "maxConcurrentTasks": 2,
+    "maxTasksPerGoal": 0,
+    "mode": "autonomous"
+  },
+  "capture": {
+    "//": "Yalnız ÇALIŞTIRMA yapan araçlar. Okuma araçlarının (`read`, `grep`, `glob`, `webfetch`, `browser_preview`, `*_get_*`, `shotcut_*_status`) başarılı çıktısı VERİDİR; içindeki 'error TS2345' çalıştırılmış bir hata değildir. Ölçülen sızıntı: okunan bir .ts dosyası taranınca `shell:TipHatasi:TS2345` imzası açılıp gerçek derleme hatalarının sayacını şişiriyordu.",
+    "//2": "`execute` (Code Mode) BİLEREK DIŞARIDA: sarmalayıcının çıktısı içinden çağrılan read/grep çıktılarıyla karışır, aynı gürültü sorunu orada da yaşanır. Sarmalayıcının kendi hataları `status === \"error\"` yolundan gelir; o yol araç sınırına tabi değildir.",
+    "scanTools": [
+      "shell",
+      "blender_execute_blender_code",
+      "blender_disable_telemetry",
+      "blender_import_generated_asset_hunyuan",
+      "blender_import_generated_asset_tripo",
+      "blender_poll_hunyuan_job_status",
+      "blender_poll_tripo_job_status",
+      "blenderlab_execute_blender_code",
+      "shotcut_edit_project",
+      "shotcut_probe_media",
+      "shotcut_restore_project_backup",
+      "shotcut_shotcut_doctor"
+    ],
+    "redact": true,
+    "maxSampleChars": 220
+  },
+  "loop": {
+    "max": 0,
+    "maxWallClockMs": 0,
+    "idleTimeoutMs": 0,
+    "stopPollMs": 1000
+  }
+}

@@ -35,7 +35,7 @@ Etiketler: <araç adı, teknoloji, komut — doğru hataya eşleşsin>
 | --- | --- | --- |
 | "Dikkatli ol." | Uygulanamaz | "Değiştirmeden önce dosyayı oku; satır numarası tahmin etme." |
 | "Hata yaptın." | Olay, kural değil | "Windows'ta yol ayırıcı `\`; JSON içinde `/` kullan." |
-| "Testleri çalıştır." | Zaten söylenen | "`pnpm test`; `npm test` bu depoda yok, `package.json` scripts'e bak." |
+| "Testleri çalıştır." | Zaten söylenen | "Komut adını varsayma: `package.json` `scripts`'e bak, sonra orada tanımlı olanı çalıştır." |
 | "MCP dokümantasyonuna bak." | Neyi arayacağını söylemiyor | "`blender_*` araçları `execute_blender_code` sonrası çağrılmalı." |
 
 Bir dersi yazdıktan sonra kendine sor: **gelecekte aynı durumda bu kural bana ne yapma fırsatı

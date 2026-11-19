@@ -1,9 +1,8 @@
 ---
 description: Salt-okunur keşif. Kodu, veriyi, yapılandırmayı haritalar; "bu nerede, bu nasıl çalışıyor, neye dokunur?" sorusuna kanıtlı cevap verir. Hiçbir şeyi değiştirmez.
 mode: subagent
-model: opencode/nemotron-3.5-lightning-free
+model: opencode/space-bunny-free
 color: "#38bdf8"
-steps: 30
 permissions:
   - action: edit
     resource: "*"
@@ -11,10 +10,33 @@ permissions:
   - action: shell
     resource: "*"
     effect: deny
+  # `shell` zaten tümüyle kapalı; bu dört yasak, ileride joker bir izin açılırsa
+  # geçmişi ezen operasyonların sessizce açılmasını önler.
+  - action: shell
+    resource: git push --force*
+    effect: deny
+  - action: shell
+    resource: git push -f*
+    effect: deny
+  - action: shell
+    resource: git reset --hard *
+    effect: deny
+  - action: shell
+    resource: git clean *
+    effect: deny
   - action: subagent
     resource: "*"
     effect: deny
   - action: question
+    resource: "*"
+    effect: deny
+  # orchestra_report TEK yuva olan bir durumu yazar ve /loop onu okuyarak döngüyü
+  # durdurur. Yalnizca mimar çağırabilir; araç zaten ayrica programatik olarak
+  # da bunu denetler. Bu izin onu modele hiç göstermeyi de engeller.
+  - action: orchestra_report
+    resource: "*"
+    effect: deny
+  - action: orchestra_task
     resource: "*"
     effect: deny
 ---

@@ -1,9 +1,8 @@
 ---
 description: "Red-team eleştirmen. Teslim edilmeden önce ikinci göz — doğruluk, geri dönüş maliyeti, kenar durumlar, regresyon ve örtük varsayımlar. Değişiklik yapmaz, savunmaz, kanıt ister."
 mode: subagent
-model: opencode/longcat-2.5-preview-free
+model: opencode/muse-spark-1.3-contributor-free
 color: "#fb7185"
-steps: 40
 permissions:
   - action: edit
     resource: "*"
@@ -12,6 +11,30 @@ permissions:
     resource: "*"
     effect: deny
   - action: question
+    resource: "*"
+    effect: deny
+  # Bu rolde joker `shell` allow YOK; rol kendi `shell` iznini yazmadığı için
+  # taban policy'nin `shell * allow`'u miras kalır. Yalnız geçmişi ezen ve çalışma
+  # ağacını silen operasyonlar burada kapatılır.
+  - action: shell
+    resource: git push --force*
+    effect: deny
+  - action: shell
+    resource: git push -f*
+    effect: deny
+  - action: shell
+    resource: git reset --hard *
+    effect: deny
+  - action: shell
+    resource: git clean *
+    effect: deny
+  # orchestra_report TEK yuva olan bir durumu yazar ve /loop onu okuyarak döngüyü
+  # durdurur. Yalnizca mimar çağırabilir; araç zaten ayrica programatik olarak
+  # da bunu denetler. Bu izin onu modele hiç göstermeyi de engeller.
+  - action: orchestra_report
+    resource: "*"
+    effect: deny
+  - action: orchestra_task
     resource: "*"
     effect: deny
 ---
@@ -51,3 +74,12 @@ eleştirmen değil, işe yaramamak demektir.
 ```
 
 Önem sırasına göre yaz. Mimar sana göre işi yeniden açar; ilk iki bulgu yeterliyse gerisi bonus.
+
+## Sınırlı yürütme politikası (31 Ekim 2026)
+
+- Gereken rolleri seç; her görevde tüm crew'u çalıştırma. `/route` yalnız öneri üretir.
+- `budget.mode=autonomous` iken görev admission reddedilirse worker başlatma; işi sıraya al.
+- Aynı oturumda en çok iki aktif görev, aynı dosyada tek yazıcı. Başka oturumlarla paralel yazma için ayrı worktree ve tek entegratör gerekir.
+- Aynı kalıcı criterionID/blockerID için üç tamamlanmış başarısız çözüm denemesi sonrası mimara kanıtla dön. Bağımsız işler sürer; dersleri koru.
+- `done` için verification: test edilen tam commit, command, exitCode=0, artifact ve reviewer. Bu kayıt doğrulama beyanıdır; test komutunu gerçekten çalıştır ve ilgili çıktıyı incele.
+- Yüksek riskli işlerde uygulayıcı kendi bağımsız incelemecisi olamaz. Modeli değiştirmeden önce katalog erişimini doğrula; fallback otomatik model düşürme gerekçesi değildir.

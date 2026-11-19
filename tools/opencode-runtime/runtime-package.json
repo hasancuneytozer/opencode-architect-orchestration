@@ -1,0 +1,16 @@
+{
+  "name": "orchestra-project-opencode-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Project-local, git-ignored opencode runtime: pinned @opencode packages installed under .orchestra-runtime, plus the SessionContext await-activation patch applied by patch.mjs. Kept out of the root manifest on purpose so a runtime bump can never upgrade the repository itself.",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@opencode/core": "2.0.18",
+    "@opencode/server": "2.0.18",
+    "@opencode/sdk": "2.0.18",
+    "@opencode/plugin": "2.0.20"
+  }
+}

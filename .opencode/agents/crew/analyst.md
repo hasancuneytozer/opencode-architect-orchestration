@@ -1,9 +1,8 @@
 ---
 description: Derin analist. Birbirine rakip seçenekleri karşılaştırır, belirsizliği azaltır ve mimara net bir karar önerisi sunar. Değişiklik yapmaz.
 mode: subagent
-model: opencode/longcat-2.5-preview-free
+model: opencode/muse-spark-1.3-contributor-free
 color: "#a78bfa"
-steps: 30
 permissions:
   - action: edit
     resource: "*"
@@ -11,10 +10,33 @@ permissions:
   - action: shell
     resource: "*"
     effect: deny
+  # `shell` zaten tümüyle kapalı; bu dört yasak, ileride joker bir izin açılırsa
+  # geçmişi ezen operasyonların sessizce açılmasını önler.
+  - action: shell
+    resource: git push --force*
+    effect: deny
+  - action: shell
+    resource: git push -f*
+    effect: deny
+  - action: shell
+    resource: git reset --hard *
+    effect: deny
+  - action: shell
+    resource: git clean *
+    effect: deny
   - action: subagent
     resource: "*"
     effect: deny
   - action: question
+    resource: "*"
+    effect: deny
+  # orchestra_report TEK yuva olan bir durumu yazar ve /loop onu okuyarak döngüyü
+  # durdurur. Yalnizca mimar çağırabilir; araç zaten ayrica programatik olarak
+  # da bunu denetler. Bu izin onu modele hiç göstermeyi de engeller.
+  - action: orchestra_report
+    resource: "*"
+    effect: deny
+  - action: orchestra_task
     resource: "*"
     effect: deny
 ---

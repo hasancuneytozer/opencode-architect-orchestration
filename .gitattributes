@@ -1,0 +1,4 @@
+# Keep byte-verified runtime fixtures stable across Windows checkouts.
+tools/opencode-runtime/fixtures/session-context-original.js text eol=lf
+# Unified diffs require a space prefix even on empty context lines.
+tools/opencode-runtime/session-context-2.0.18.patch text eol=lf whitespace=-blank-at-eol

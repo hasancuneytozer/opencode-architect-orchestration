@@ -6,7 +6,9 @@ subagent: false
 
 `/standup` — Orchestra durum raporu.
 
-Şunları topla ve tek ekranda raporla:
+Atanmış İş Akışı görevi için `work_progress_inspect_delivery` ile güncel teslimi ve ona bağlı kararı oku. Görev bağlantısı, durum ve sıradaki adımı bildir.
+
+Bağımsız yerel çalışmada şu bilgileri topla:
 
 1. **Oturum** — mevcut hedef nedir, kabul kriterleri neler, geriye ne kaldı?
 2. **Döngü** — `/loop status` çalıştır: durum, iterasyon sayısı, son rapor, bitiş nedeni.
