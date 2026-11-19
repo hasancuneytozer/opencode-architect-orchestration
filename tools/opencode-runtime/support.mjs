@@ -38,7 +38,7 @@ export const SERVER_SCRIPT_NAME = "server.mjs"
 /** Kaynak plugin dizini. YALNIZCA okunur; hafiza dizini icermez. */
 export const SOURCE_PLUGIN_DIR_REL = [".opencode", "plugins", "orchestra"]
 /** Kirpilan dosyalar: bunun disindaki hicbir sey kopyalanmaz. */
-export const PLUGIN_SOURCE_FILES = ["index.ts", "memory.ts", "loop.ts", "fallback.ts", "tasks.ts", "tools.ts", "work-progress.ts"]
+export const PLUGIN_SOURCE_FILES = ["index.ts", "memory.ts", "loop.ts", "fallback.ts", "tasks.ts", "tools.ts", "work-progress.ts", "baseline.ts"]
 export const INDEX_FILE = "index.ts"
 export const MIRRORED_PLUGIN_DIR_NAME = "orchestra"
 

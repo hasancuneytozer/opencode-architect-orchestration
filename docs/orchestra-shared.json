@@ -3,7 +3,7 @@
   "scope": "shared engine only; not a full project installer",
   "files": {
     ".opencode/plugins/orchestra/loop.ts": "5d81eea5404b47822807f7ad06b1378197213c0dbfb8438333067b98c834a731",
-    ".opencode/plugins/orchestra/tasks.ts": "b161b3143ad4f1104bf9c74ebeb9537301820ca3c045a407097eec47afccca7c",
+    ".opencode/plugins/orchestra/tasks.ts": "a9dd479571976366239f9deca4eb5674603c85160c1fb799ca4d0e70e06e3a1b",
     ".opencode/plugins/orchestra/tools.ts": "ddb714c0730b9d4a22cb38d4f9b8fc1104547670016dad03589d3c5c9680c9ab",
     ".opencode/plugins/orchestra/memory.ts": "85472cf88be1cd1d875a112ee8e31b71ff83eeff655967936aaf97841c10ec72",
     ".opencode/plugins/orchestra/index.ts": "649d149eaf450716dd840367b7c6016496c3d83e229c238ed2f72966cfbea1ba",
@@ -23,11 +23,13 @@
     "tools/opencode-runtime/server.mjs": "f0307428aa1920ca75490733e8797a08a3ec2d676487fff731d930a90937c2d3",
     "tools/opencode-runtime/server.test.mjs": "f98947b9a85ce80c1cb078aca8980d985c26427367af088c1ce4da8eb31dc831",
     "tools/opencode-runtime/session-context-2.0.18.patch": "99612775c659cdc8c219cc441d6424942d9a1229859b30071e6a04bf1e7ae606",
-    "tools/opencode-runtime/support.mjs": "1f446730243ca09da811dd37f193deb20324f94c87b72f5a0e0eae63c241931c",
+    "tools/opencode-runtime/support.mjs": "851861bef906410314e13cc1fbc306eb2c739a96b5f3dc81621cfd85a55e486b",
     "tools/opencode-runtime/support.test.mjs": "83b2d2698d6f75a156d266596341ec2fe538a72c11d91bc634c59b6ed89f42aa",
     "tools/opencode-runtime/fixtures/session-context-original.js": "09b0ed4dae1749183a35f2a034b294702100bc1d9867e78a08fe4d9585a6722b",
     "scripts/sync-shared.test.mjs": "ac7f4292bc62dda7eb853d1c272c39b41cebb13bdebd4ef223b155a835a2638e",
-    ".opencode/plugins/orchestra/work-progress.ts": "80a1a6173a69ed802a3d1edfbf9d4c0bdb5b2ef4cefcb08427b5b4de4bb41027",
-    ".opencode/scripts/work-progress.test.mjs": "da65bd244e8e6136e8a21a2f8282612866c0a896da4dc633ebf475d283138c7d"
+    ".opencode/plugins/orchestra/work-progress.ts": "839becd9e0a6ebc59024fc587c5dc11d2f06ed31435313f36d4386747bb76462",
+    ".opencode/scripts/work-progress.test.mjs": "da65bd244e8e6136e8a21a2f8282612866c0a896da4dc633ebf475d283138c7d",
+    ".opencode/plugins/orchestra/baseline.ts": "bd14298d1562a25fb1fd10f46b0510dfc8d46538841890b0a9bf14807e5f6cd5",
+    ".opencode/scripts/baseline.test.mjs": "d74e8db303db01dbb9f91a97c2acd26e81bf53a1caacfdab236037a79d005ba4"
   }
 }

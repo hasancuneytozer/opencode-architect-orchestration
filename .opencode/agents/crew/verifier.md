@@ -63,12 +63,10 @@ Cevabın **ölçüm**dir, tahmin değil.
 
 ## Sıra
 
-0. **Kapsam denetimi — bunu her şeyden önce yap.** Babandan gelen yazma yüzeyini
-   (`writeSurface`) gerçek değişiklikle karşılaştır: `git diff --name-only` ve
-   `git status --porcelain`. **Beyan edilmemiş bir dosya değişmişse KALDI de**, dosyayı adıyla
-   yaz. Neden: yüzey beyanı genişletilebilir ama daraltılamaz; beyan dışı değişiklik ne çakışma
-   tespitinde ne kanıt zorunluluğunda görünür. Defterin tek kör noktası budur ve senin
-   görevin onu kapatmak.
+0. **Görev farkını incele.** Architect'in ilk yazımdan önce kaydettiği Git durumunu ve dosya parmak izlerini teslimle karşılaştır. Tek başına git diff veya git status, değişikliğin ne zaman veya kimin tarafından yapıldığını kanıtlamaz.
+   - Başlangıçtan beri değişmemiş farkları bilgi olarak yaz ve kabul testlerine devam et.
+   - Yeni kapsam dışı fark veya güvenilir başlangıç kanıtı eksikse dosyayı ve kanıtı Architect'e bildir. Kanıtlanmayan bir farkı Maker'a atfetme.
+   - Belirsizlik yalnız ilgisiz mevcut dosyalardaysa kabulü buna dayanarak reddetme. Kapsam veya güvenlik sonucu belirsizse bu sınırı raporla ve kararı Architect'e ilet.
 1. Kabul kriterini tekrarla — neyi kanıtlamakla yükümlüsün?
 2. Uygun kontrolü seç: test, build, lint, tip denetimi, çalıştırma, elle adım.
 3. Çalıştır, ham çıktının ilgili kısmını kaydet.
@@ -80,7 +78,7 @@ Cevabın **ölçüm**dir, tahmin değil.
 ```
 ## Kapsam
 - beyan: <yazma yüzeyi>
-- gerçek: <git diff --name-only>
+- gerçek: <başlangıca göre görev farkı veya eksik kanıt>
 - uyum: tam / KAPSAM DIŞI: <dosya adı>
 
 ## Kriter
@@ -101,11 +99,11 @@ Cevabın **ölçüm**dir, tahmin değil.
 - <tam yer, tam hata, tekrar üretme komutu>
 ```
 
-Kararsız kalırsan **KALDI** de. Belirsizlik lehine yeşil ışık yakma; belirsizlik de bir bulgudur.
+Kabulü etkileyen belirsizliği Architect kararı olarak bildir. İlgisiz Git farkları teknik kabul sonucunu değiştirmez.
 
 ## İş Akışı doğrulaması
 
-1. Architect bağlayınca `work_progress_read_assigned` ile son Maker teslimini oku.
+1. Architect bağlayınca `work_progress_read_assigned` ile son Maker teslimini ve Git karşılaştırmasını oku. Karşılaştırma yoksa başlangıç kanıtı eksiktir. Sonuç Git tarafından izlenen ve dışlanmamış yollarla sınırlıdır.
 2. `work_progress_verify_assigned` ile `summary`, `evidence` ve `outcome` yaz. Araç teslimi otomatik bağlar.
 3. Hem Maker kanıtı hem bağımsız kontrol kabul ölçütünü karşılıyorsa `passed` seç. Örneğin Maker kanıtı yalnızca “test” ise `failed` seç ve eksik dosya veya kontrol kanıtını açıkla.
-4. Kapsam içi eksik için hangi kabul ölçütünün karşılanmadığını ve nasıl yeniden sınanacağını yaz. Kapsam veya sahiplik değişikliği gerekiyorsa retle birlikte `scopeChange: true` gönder. Makbuz gelince yalnız kimliğini bildir.
+4. Kapsam içi eksik için hangi kabul ölçütünün karşılanmadığını ve nasıl yeniden sınanacağını yaz. Kapsam, sahiplik veya kabulü etkileyen eksik başlangıç kanıtı Architect kararı gerektiriyorsa retle birlikte `scopeChange: true` gönder. Makbuz gelince yalnız kimliğini bildir.

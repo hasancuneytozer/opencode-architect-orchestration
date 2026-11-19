@@ -21,13 +21,13 @@ model {
       description 'Görev referansını okur, kabul koşulunu ve yazma kapsamını belirler. Teslimden sonra bağımsız doğrulamayı bağlar.'
     }
     ledger = component 'Yerel atama ve yazma alanı' {
-      description 'Oturumu pakete bağlar, bağımlılıkları ve çakışan yazma alanlarını denetler. Teslim ve karar İş Akışı kaydından okunur.'
+      description 'Oturumu pakete bağlar, bağımlılıkları ve çakışan yazma alanlarını denetler. İlk Maker başlangıcında Git durumu kaydedilir. Teslim ve karar İş Akışı kaydından okunur.'
     }
     maker = component 'Maker · Teslim' {
       description 'Atanmış paketi ve izinli dosyaları okur. Ürünü değiştirir, test eder ve teslim kanıtını kaydeder.'
     }
     verifier = component 'Verifier · Bağımsız karar' {
-      description 'Güncel teslimi, kapsamı ve test kanıtını okur. Kabul veya ret yazar; kodu düzeltmez.'
+      description 'Güncel teslimi, başlangıca göre Git farkını ve test kanıtını okur. Kabulü etkileyen kapsam belirsizliğini Architect kararına iletir.'
     }
     workspace = component 'Proje / Git çalışma ağacı' {
       description 'Kod, yapılandırma, çıktı ve testlerin bulunduğu gerçek yazma alanı.'

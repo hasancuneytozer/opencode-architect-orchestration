@@ -31,6 +31,7 @@
 
 import { promises as fs } from "node:fs"
 import path from "node:path"
+import { captureGitBaseline, type GitBaseline } from "./baseline.ts"
 // DİKKAT: `./memory` DEĞER olarak import EDİLMEZ (dosya başı notu). Yalnız tip.
 import type { Memory } from "./memory"
 
@@ -60,6 +61,7 @@ export interface TaskRecord {
   /** Canonical İş Akışı task. This local record controls only worker admission. */
   workflowRef?: string
   workflowRevision?: number
+  gitBaseline?: GitBaseline | null
   workflowNeedsDecision?: boolean
   /** Recovery marker for pre-progress records that started without acceptance. */
   legacyUnbound?: boolean
@@ -1290,6 +1292,8 @@ export class TaskLedger {
       }
       // A new attempt invalidates prior verification, even if included in this call.
       task.verification = undefined
+      if (task.status === "planned" && !task.startedAt && task.role === "crew/maker")
+        task.gitBaseline = await captureGitBaseline(this.root)
       task.startedAt = task.startedAt ?? new Date(this.now()).toISOString()
     }
 

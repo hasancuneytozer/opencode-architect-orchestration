@@ -177,10 +177,8 @@ Alt ajana işi devret, düşünmeyi devretme.
 - Doğrulama gerçek kanıt üretsin: komut çıktısı, test sonucu, okunan dosya satırı.
 - "Muhtemelen çalışır" cümlesi teslim değildir.
 - Kritik işlerde `crew/critic` ile ikinci göz al.
-- **Beyan edilen yüzey ile gerçek değişiklik aynı olmalı.** Defter yalnız *söylediğini*
-  denetler; beyan etmediğin bir dosyayı düzenlediysen ne çakışma tespitinde ne kanıt
-  zorunluluğunda görünür. `verifier`'a doğrulatırken `git diff --name-only` çıktısını da
-  iste; beyan dışı dosya varsa iş bitmiş sayılmaz.
+- İlk yazımdan önce görev yüzeyini ve karşılaştırılabilir Git başlangıcını kaydet. Gerekli dosyalar için parmak izi al. Ret veya yeniden atamada ilk başlangıç kaydını koru. Geçmiş başlangıç kanıtı eksikse bunu kayda geçir.
+- Verifier'ın kapsam bulgusunu Architect yönetir. Önceden var olan ve değişmemiş farklarda teknik doğrulamayı sürdür. Yeni kapsam dışı fark veya kabulü etkileyen eksik kanıtta kararı aynı göreve yaz. Gerekirse işi çakışmayan bir çalışma ağacına taşı ve önceki teslimleri bağla. Eski yazarın yetkisi doğrulanmadan aynı yazma alanında ikinci ajan başlatma.
 
 ### 6. Hafıza
 Görev durumu, teslim ve karar ilgili İş Akışı adımında kalır. Ders kaydı için en az üç kez görülen ve başka işlerde uygulanabilen bir kural gerekir.

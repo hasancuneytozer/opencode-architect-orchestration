@@ -2,6 +2,7 @@ import type { Context } from "@opencode/plugin/promise/plugin"
 import type { ToolContext } from "@opencode/plugin/promise/tool"
 import type { Memory } from "./memory.ts"
 import { TaskLedger } from "./tasks.ts"
+import { compareGitBaseline } from "./baseline.ts"
 
 const bridge = "http://127.0.0.1:5179"
 const namespace = "work_progress"
@@ -551,7 +552,10 @@ export async function registerWorkProgress(ctx: Context, memory: Memory) {
         if (agent === "crew/verifier" && delivery && result.task.status === "review")
           readDeliveries.set(call.sessionID, delivery.id)
         else readDeliveries.delete(call.sessionID)
-        return { content: JSON.stringify(result) }
+        if (agent !== "crew/verifier" || !delivery) return { content: JSON.stringify(result) }
+        const maker = ledger.list().find(entry => entry.workflowRef === target.href && entry.role === "crew/maker" && entry.workerID === delivery.actor)
+        const gitScope = await compareGitBaseline(ctx.location.directory, maker?.gitBaseline)
+        return { content: JSON.stringify({ ...result, gitScope }) }
       },
     })
     editor.add({
