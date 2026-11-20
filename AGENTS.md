@@ -65,6 +65,17 @@ kuralın görünmemesi.
 - Devre durumu süreç içindedir; yeniden başlatınca sıfırlanır. Kalıcılık gerekmiyorsa
   bu kabul edilmiş bir sadeleştirmedir.
 
+## Engel çözme
+
+1. Başarısız kontrolü, beklenen sonucu ve gözlenen kanıtı aynı İş Akışı adımına yaz. Örneğin 404 için önce hedef servisi ve ilgili yolun orada kayıtlı olup olmadığını doğrula.
+2. Atanmış yazma kapsamı ve yetki içinde en küçük geri alınabilir düzeltmeyi aynı adımda dene. Başarısız kontrolü yeniden çalıştır. Geçerse kanıtı aynı adıma yaz ve devam et.
+3. Art arda iki kısa deneme yeni kanıt üretmezse aynı denemeleri durdur. Doğruladığın bulguyu, açık belirsizliği ve gereken tek bilgi, karar veya yetkiyi aynı adıma kaydet.
+4. Architect’e yalnız bir karar veya yetki gerektiğinde mevcut adım bağlantısıyla, kanıtla ve tek soruyla devret. Architect aynı engeli üstlenmişse sonucu mevcut kayıttan takip et.
+
+## Orkestrasyon değişikliklerini yayımlama
+
+- Orkestrasyon ve proje uyarlaması değişikliklerini doğruladıktan sonra ilgili deponun `main` dalına commit et ve `origin/main` dalına gönder. Gerekirse ayrı bir çalışma ağacında hazırlan, doğrulanmış değişikliği aynı `main` dalına birleştir. Geçici dalı uzak depoya gönderme. Commit’e yalnız ilgili dosyaları al ve uzak ana dalın gönderilen commit’i içerdiğini doğrula.
+
 ## Ortak İş Akışı ve görev devri
 
 - Çok adımlı işlerde ilk planı kalıcı İş Akışı grafiğine yaz ve bağlantısını kullanıcıya göster. Ayrı teslimi veya doğrulaması olan kolları başladıkları göreve bağlı alt akışlara böl. Bağımlılığı, birleşme noktasını ve çelişkileri ilgili dal ve üst görevde izle.
