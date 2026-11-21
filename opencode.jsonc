@@ -33,6 +33,13 @@
     "directory": ".worktrees"
   },
 
+  "mcp": {
+    "skill_library": {
+      "type": "local",
+      "command": ["node", "scripts/skill-library-mcp.mjs"]
+    }
+  },
+
   "permissions": [
     // ─────────────────────────────────────────────────────────────────────────
     // SIRALAMA KURALIDIR. Kurallar yukarıdan aşağı taranır ve **SON eşleşen**
@@ -72,6 +79,7 @@
     { "action": "shotcut_*", "resource": "*", "effect": "allow" },
     { "action": "blender_*", "resource": "*", "effect": "allow" },
     { "action": "blenderlab_*", "resource": "*", "effect": "allow" },
+    { "action": "skill_library_*", "resource": "*", "effect": "allow" },
 
     // ── 2a) Yıkıcı komutlar ─────────────────────────────────────────────────
     // `*` sıfır karakteri de kapsar: `rm -rf ~*` yalnız `rm -rf ~` değil,

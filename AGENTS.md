@@ -74,15 +74,15 @@ kuralın görünmemesi.
 
 ## Orkestrasyon değişikliklerini yayımlama
 
-- Orkestrasyon ve proje uyarlaması değişikliklerini doğruladıktan sonra ilgili deponun `main` dalına commit et ve `origin/main` dalına gönder. Gerekirse ayrı bir çalışma ağacında hazırlan, doğrulanmış değişikliği aynı `main` dalına birleştir. Geçici dalı uzak depoya gönderme. Commit’e yalnız ilgili dosyaları al ve uzak ana dalın gönderilen commit’i içerdiğini doğrula.
+- Orkestrasyon ve proje uyarlaması değişikliklerini doğruladıktan sonra ilgili deponun `main` dalına commit et ve `origin/main` dalına gönder. Gerekirse ayrı bir çalışma ağacında hazırlan, doğrulanmış değişikliği aynı `main` dalına birleştir. Geçici dalı uzak depoya gönderme. Commit’e yalnız ilgili dosyaları al ve uzak ana dalın gönderilen commit’i içerdiğini doğrula. Ortak katalog yayını kullanıcı kararına bağlıdır.
 
 ## Ortak İş Akışı ve görev devri
 
 - Çok adımlı işlerde ilk planı kalıcı İş Akışı grafiğine yaz ve bağlantısını kullanıcıya göster. Ayrı teslimi veya doğrulaması olan kolları başladıkları göreve bağlı alt akışlara böl. Bağımlılığı, birleşme noktasını ve çelişkileri ilgili dal ve üst görevde izle.
-- Görev paketi hedefi, yazma kapsamını, kabul ölçütünü, aynen taşınan görev bağlantısını ve gerekiyorsa sabit yetenek sürümünü içerir. Her proje kendi rol adlarını ve araçlarını bu sorumluluklara eşler. Görev gönderiminden önce seçilen rol modelinin hedef projede kullanılabilirliğini ve göreve uygunluğunu doğrula. Gerektiğinde profil veya katalogdan seçilen yeteneğin kimliğini ve sürümünü pakete, kullanım kanıtını teslim kaydına yaz.
+- Görev paketi hedefi, yazma kapsamını, kabul ölçütünü, aynen taşınan görev bağlantısını ve gerekiyorsa sabit yetenek sürümünü içerir. Her proje kendi rol adlarını ve araçlarını bu sorumluluklara eşler. Görev gönderiminden önce seçilen rol modelinin hedef projede kullanılabilirliğini ve göreve uygunluğunu doğrula. Gerektiğinde profil veya katalogdan seçilen yeteneğin kimliğini ve sürümünü pakete, kullanım kanıtını teslim kaydına yaz. Kaynak proje kendi mimarisini ve mevcut kurallarını koruyarak uygular ve doğrular. Basit işler engellenmez. Gerçek normal görevde aramayı ayrıca söylemeden teslim kanıtıyla doğrula; desteklenmeyenleri belirt. Bu depoda ayrı bir kütüphane/rol kataloğu paketi yok; yetenek sistemi depodaki Agent Orchestration Boilerplate’ın kendisidir.
 - Tek yüzeyli, düşük riskli ve otomatik testle doğrulanabilen işler tek uygulayıcıyla yürüyebilir. Bağımsız kontrol veya ayrı iş kolları değer kattığında Architect işi böler ve işi doğrulayacak ayrı rolü seçer.
 - İş Akışı MCP bağlantısı kullanılıyorsa çalışma ortamı her oturuma yalnızca atanmış görevi kapsayan kendi erişimini sağlar. Görev bağlantısını paketle ilet ve araçların göründüğünü kontrol et. Erişim bilgisini göreve veya rol dosyasına koyma.
-- Maker değişikliği ve test kanıtını teslim olarak kaydeder. Verifier aynı teslimin kontrol sonucunu ve kanıtını ayrı yazar. Araç yoksa sonucu Architect'e ilet ve yazmanın gerçekleşmediğini belirt.
+- Maker değişikliği ve test kanıtını teslim olarak kaydeder. Verifier aynı teslimin kontrol sonucunu ve kanıtını ayrı yazar. Araç yoksa sonucu Architect'e ilet ve yazmanın gerçekleşmediğini belirt. Teslim ve bağımsız doğrulama kanıtını bu kayda yaz.
 
 ## Doğrulama
 

@@ -392,7 +392,7 @@ const genelJokerlar = kurallar
 check("config'te joker allow'lar orkestrasyon kapisi disinda kalmali", genelJokerlar.map(({ k }) => k.action), [
   "shell", "edit", "read", "glob", "grep", "webfetch", "websearch", "skill",
   "external_directory", "question", "execute",
-  "shotcut_*", "blender_*", "blenderlab_*",
+  "shotcut_*", "blender_*", "blenderlab_*", "skill_library_*",
 ])
 
 console.log("")
