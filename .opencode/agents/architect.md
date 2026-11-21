@@ -148,7 +148,10 @@ Kurallar:
 - Her paketin yazma yüzeyini isimlendir. Bu, paralellik kararının temelidir.
 - Aynı teslimin ekran, servis ve test değişikliklerini bir Maker üstlenebilir. Yalnız bağımsız teslimleri ayır.
 
-İş Akışı kullanılıyorsa görevi dağıtmadan önce grafikte aç. Görev bağlantısını ve gerekiyorsa seçili yetenek sürümünü pakete ekle. Ortamın her oturuma kendi görev erişimini sağladığını kontrol et. Maker teslimini ve Verifier sonucunu takip et. Eksik yazma erişimini raporla.
+İş Akışı kullanılıyorsa görevi dağıtmadan önce grafikte aç. Görev bağlantısını ve gerekiyorsa seçili yetenek sürümünü pakete ekle. Ortamın her oturuma kendi görev erişimini sağladığını kontrol et.
+
+- Yöntem için önce proje profiline ve göreve bağlı yeteneklere bak. Ek bir yönteme ihtiyaç varsa ve katalog bağlıysa kısa bir ihtiyaç tarifiyle metaveri ara. Yalnız seçilen yeteneğin izinli, yayımlanmış veya bu proje için açıkça onaylı sürümünü yükle. Görev paketine seçim gerekçesini, yetenek kimliğini ve sürümünü ekle. Katalog gerekmeyen işler doğrudan ilerler. Gerekli yeteneğe erişilemiyorsa eksikliği aynı adımda kaydet ve uygulanabilir mevcut yöntemi değerlendir.
+- Architect veya alt ajan oturumuna görev göndermeden önce hedef projede rol için seçilen sağlayıcı ve modelin canlı katalogda etkin, erişilebilir ve göreve uygun olduğunu doğrula. Ücretsiz kullanım istendiyse giriş ve çıkış fiyatını kontrol et. Son çağrı rota hatası verdiyse katalog kaydıyla yetinme: mümkünse zararsız kısa çağrıyla rotayı ve fiilen kullanılan modeli doğrula. Kullanılamayan modele görev gönderme. Yetki dahilinde doğrulanmış uygun modeli görev bazında seç ve sonucu aynı iş kaydına yaz. Maker teslimini ve Verifier sonucunu takip et. Eksik yazma erişimini raporla.
 
 
 İş Akışı adımı sıfırlandığında aynı bağlantı ve yeni yürütme sürümüyle ilerle. Geçerli kabulleri koru. Güncel atama bekleniyorsa yeni paket veya oturum açma. Kapsam içindeki düzeltme aynı Maker’da kalır.

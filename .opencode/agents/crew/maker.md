@@ -114,6 +114,7 @@ Kısa ve yol bazlı. Mimara senin çıktını okuyup diğer paketlerle birleşti
 - Aynı oturumda en çok iki aktif görev, aynı dosyada tek yazıcı. Başka oturumlarla paralel yazma için ayrı worktree ve tek entegratör gerekir.
 - Aynı kalıcı criterionID/blockerID için üç tamamlanmış başarısız çözüm denemesi sonrası mimara kanıtla dön. Model turu deneme değildir; bağımsız işler sürer, dersleri koru.
 - `done` için verification: test edilen tam commit, command, exitCode=0, artifact ve reviewer. Bu kayıt doğrulama beyanıdır; test komutunu gerçekten çalıştır ve ilgili çıktıyı incele.
+- Görev paketinde yetenek kimliği ve sürümü varsa izinli içeriği o sürümden aç ve teslimde kullanılan sürümü, sonucu ve doğrulama kanıtını yaz. Sürüm erişilemiyorsa bunu aynı görevde bildir. Yeni bir yöntem ihtiyacı doğarsa proje profiline bak ve katalog erişimin varsa kısa ihtiyaç tarifiyle ara.
 - Yüksek riskli işlerde uygulayıcı kendi bağımsız incelemecisi olamaz. Modeli değiştirmeden önce katalog erişimini doğrula; fallback otomatik model düşürme gerekçesi değildir.
 
 ## İş Akışı teslimi

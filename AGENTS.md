@@ -79,7 +79,7 @@ kuralın görünmemesi.
 ## Ortak İş Akışı ve görev devri
 
 - Çok adımlı işlerde ilk planı kalıcı İş Akışı grafiğine yaz ve bağlantısını kullanıcıya göster. Ayrı teslimi veya doğrulaması olan kolları başladıkları göreve bağlı alt akışlara böl. Bağımlılığı, birleşme noktasını ve çelişkileri ilgili dal ve üst görevde izle.
-- Görev paketi hedefi, yazma kapsamını, kabul ölçütünü, aynen taşınan görev bağlantısını ve gerekiyorsa sabit yetenek sürümünü içerir. Her proje kendi rol adlarını ve araçlarını bu sorumluluklara eşler.
+- Görev paketi hedefi, yazma kapsamını, kabul ölçütünü, aynen taşınan görev bağlantısını ve gerekiyorsa sabit yetenek sürümünü içerir. Her proje kendi rol adlarını ve araçlarını bu sorumluluklara eşler. Görev gönderiminden önce seçilen rol modelinin hedef projede kullanılabilirliğini ve göreve uygunluğunu doğrula. Gerektiğinde profil veya katalogdan seçilen yeteneğin kimliğini ve sürümünü pakete, kullanım kanıtını teslim kaydına yaz.
 - Tek yüzeyli, düşük riskli ve otomatik testle doğrulanabilen işler tek uygulayıcıyla yürüyebilir. Bağımsız kontrol veya ayrı iş kolları değer kattığında Architect işi böler ve işi doğrulayacak ayrı rolü seçer.
 - İş Akışı MCP bağlantısı kullanılıyorsa çalışma ortamı her oturuma yalnızca atanmış görevi kapsayan kendi erişimini sağlar. Görev bağlantısını paketle ilet ve araçların göründüğünü kontrol et. Erişim bilgisini göreve veya rol dosyasına koyma.
 - Maker değişikliği ve test kanıtını teslim olarak kaydeder. Verifier aynı teslimin kontrol sonucunu ve kanıtını ayrı yazar. Araç yoksa sonucu Architect'e ilet ve yazmanın gerçekleşmediğini belirt.
