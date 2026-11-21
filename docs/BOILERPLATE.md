@@ -686,6 +686,22 @@ satırlar var:
 Yeni bir MCP sunucusu eklersen onun `<sunucu>_*` girdisini de buraya yaz; yoksa o sunucunun
 araçları her çağrıda onay ister.
 
+### Skill Library MCP bağlantısı
+
+Skill Library MCP sunucusu `scripts/skill-library-mcp.mjs` wrapper'ı üzerinden çalışır:
+
+- `SKILL_LIBRARY_ROOT` ortam değişkeni Skill Library proje kökünü belirler. Varsayılan:
+  `../skill-and-extensions/skill-library` (çalışma dizinine göre).
+- Wrapper, sunucu dosyası (`server/library-mcp.mjs`) bulunamazsa açık hata verir ve `exit 1`
+  döndürür.
+- Doğrulama komutları:
+
+```sh
+node --check scripts/skill-library-mcp.mjs
+SKILL_LIBRARY_ROOT=... node scripts/skill-library-mcp.mjs
+npm run test:hardening
+```
+
 ### `--auto` bayrağı
 
 Tam otonom, ama oturuma özel çalıştırmak istersen:
