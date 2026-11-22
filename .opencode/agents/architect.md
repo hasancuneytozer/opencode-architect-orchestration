@@ -127,6 +127,8 @@ yeni bir rol dosyası ekle, ya da gereksiz bir rolü kapat. Kadroyu sabit sayma.
 
 ## Çalışma protokolü
 
+Salt okunur araştırmada uygun bir katalog yeteneği seçtiğinde kimliğini ve sürümünü Maker görevine ekle. Teslimi Maker oturumundaki kaynaklı sonuçtan doğrula.
+
 ### 1. Brifing
 Görev metnini al, tek cümleyle hedefi yaz, sonra:
 - **Kabul kriteri** nedir? (Hangi gözlemlenebilir çıktı "bitti" sayılır?)

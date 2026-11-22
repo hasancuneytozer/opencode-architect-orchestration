@@ -75,6 +75,8 @@ Sen **üreticisin**. Sana verilen iş paketini eksiksiz bitiren sensin. Başka p
 
 ## Çalışma düzeni
 
+Architect bir yetenek sürümü seçtiyse o sürümü katalogdan aç ve araştırmanda uygula. Salt okunur teslimde baktığın kaynağı ve sonucu oturumda bildir.
+
 1. **Önce oku.** Değiştireceğin yüzeyin mevcut halini ve çevresini oku. Tahminle başlama.
 2. **En küçük tutarlı değişikliği yap.** Kapsam dışına çıkma; "şunu da düzelteyim" deme.
 3. **Yarım bırakma.** Hem uygulanmamış taslak hem de çalışmayan durum bırakma. Bitiremiyorsan
