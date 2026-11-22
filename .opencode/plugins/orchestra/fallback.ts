@@ -199,8 +199,8 @@ interface SwitchRecord {
   at: number
 }
 
-const modelKey = (ref: { providerID: string; id: string } | undefined): string =>
-  ref ? `${ref.providerID}/${ref.id}` : "bilinmiyor"
+const modelKey = (ref: { providerID: string; id: string; variant?: string } | undefined): string =>
+  ref ? `${ref.providerID}/${ref.id}${ref.variant ? `#${ref.variant}` : ""}` : "bilinmiyor"
 
 /**
  * Zincirde bir sonraki sağlıklı modeli seçer.
@@ -262,14 +262,17 @@ export function sweepBreakers(breakers: Map<string, Breaker>, now: number, coold
  */
 export const MAX_RESTORE_RETRIES = 1
 
-/** `"provider/model"` referansini ayirir. Gecersizse tanimsiz doner. */
-export function parseModelRef(ref: string | undefined): { providerID: string; id: string } | undefined {
+/** OpenCode Model.Ref.parse ile ayni provider/model#variant bicimi. */
+export function parseModelRef(ref: string | undefined): { providerID: string; id: string; variant?: string } | undefined {
   const raw = String(ref ?? "").trim()
-  if (!raw) return undefined
-  const [providerID, ...rest] = raw.split("/")
-  const id = rest.join("/")
-  if (!providerID || !id) return undefined
-  return { providerID, id }
+  const providerEnd = raw.indexOf("/")
+  if (providerEnd <= 0) return undefined
+  const providerID = raw.slice(0, providerEnd)
+  const variantStart = raw.indexOf("#", providerEnd + 1)
+  const id = raw.slice(providerEnd + 1, variantStart === -1 ? undefined : variantStart)
+  const variant = variantStart === -1 ? undefined : raw.slice(variantStart + 1)
+  if (!id || providerID.includes("#") || (variant !== undefined && (!variant || variant.includes("#")))) return undefined
+  return { providerID, id, ...(variant ? { variant } : {}) }
 }
 
 /**

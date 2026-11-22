@@ -15,6 +15,7 @@ import {
   nextHealthy,
   sweepBreakers,
   loadFallbackConfig,
+  registerFallback,
   DEFAULT_FALLBACK,
   shouldRestore,
   bumpRetry,
@@ -274,6 +275,30 @@ check("sadece provider reddedilir", parseModelRef("p"), undefined)
 
 console.log("")
 console.log("")
+console.log("=== 7b. VARIANT GECIS VE GERI DONUS ===")
+check("varyant ayri alana ayrilir", parseModelRef("p/vendor/model#high"), { providerID: "p", id: "vendor/model", variant: "high" })
+check("bos varyant reddedilir", parseModelRef("p/m#"), undefined)
+check("coklu varyant ayraci reddedilir", parseModelRef("p/m#high#low"), undefined)
+check("provider icinde ayirac reddedilir", parseModelRef("p#x/m"), undefined)
+const fixture = mkdtempSync(tmpdir() + "/orchestra-variant-")
+mkdirSync(fixture + "/.opencode", { recursive: true })
+writeFileSync(fixture + "/.opencode/orchestra.json", JSON.stringify({ fallback: { autoSwitch: true, cooldownThreshold: 1, chain: ["p/a#high", "p/b#low"], learnFromFailures: false } }))
+let retryHandler
+const calls = []
+const mockContext = { session: {
+  hook: async (_name, handler) => { retryHandler = handler },
+  switchModel: async (input) => { calls.push(input) },
+  get: async () => ({ agent: "maker" }),
+} }
+const registered = await registerFallback(mockContext, {}, fixture)
+const event = { sessionID: "s", agent: "maker", model: { providerID: "p", id: "a", variant: "high" }, error: { status: 500 }, attempt: 2, decision: { retry: false } }
+await retryHandler(event)
+check("fallback variant ile switchModel cagrilir", calls[0], { sessionID: "s", model: { providerID: "p", id: "b", variant: "low" } })
+check("gecis sonrasi retry", event.decision.retry, true)
+await registered.handle.onTurnStart("s")
+check("orijinal varyantla geri donulur", calls[1], { sessionID: "s", model: { providerID: "p", id: "a", variant: "high" } })
+rmSync(fixture, { recursive: true, force: true })
+
 console.log("=== 8. OTURUM IZOLASYONU (regresyon) ===")
 // Bu blok bir hatayi kilitler: retry sayaci TEK GLOBAL bir sayacti. Paralel
 // oturumdan gelen TEK BIR retry, bu oturumun `mark`ini degistiriyor ve geri
