@@ -56,3 +56,18 @@ test('skill policy sync stops on divergent managed content', async t => {
   assert.equal(result.applied, false)
   assert.deepEqual(result.conflicts, ['.opencode/agents/crew/maker.md'])
 })
+
+test('config patch preserves existing MCP servers and accepts the supported V1 shape', async t => {
+  const first = await fixture(t)
+  await writeFile(path.join(first.target, 'opencode.jsonc'), '{\n  "mcp": { "servers": { "penpot": { "type": "remote", "url": "http://localhost:4401/mcp" } } },\n  "permissions": []\n}\n')
+  await syncSkillPolicy(first.source, first.target, true)
+  const v2 = await readFile(path.join(first.target, 'opencode.jsonc'), 'utf8')
+  assert.match(v2, /penpot/)
+  assert.match(v2, /skill_library/)
+
+  const second = await fixture(t)
+  await writeFile(path.join(second.target, 'opencode.jsonc'), '{\n  "mcp": { "skill_library": { "type": "local", "command": ["node", "scripts/skill-library-mcp.mjs"] } },\n  "permissions": []\n}\n')
+  await syncSkillPolicy(second.source, second.target, true)
+  const v1 = await readFile(path.join(second.target, 'opencode.jsonc'), 'utf8')
+  assert.match(v1, /skill_library_\*/)
+})

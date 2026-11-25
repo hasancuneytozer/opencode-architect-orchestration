@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, realpath, lstat } from 'node:fs/promises'
 import { resolve, dirname, relative, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
+import ts from 'typescript'
 
 const hash = value => createHash('sha256').update(value.replace(/\r\n/g, '\n')).digest('hex')
 const inside = (root, file) => {
@@ -66,45 +67,53 @@ function patchMaker(content) {
   return insertBefore(content, '## Çalışma düzeni', makerBlock) ?? insertBefore(content, '## Ne döneceksin', makerBlock)
 }
 
-function stripJsonComments(input) {
-  let output = '', inString = false, escaped = false, lineComment = false, blockComment = false
-  for (let index = 0; index < input.length; index++) {
-    const char = input[index], next = input[index + 1]
-    if (lineComment) { if (char === '\n') { lineComment = false; output += char } continue }
-    if (blockComment) { if (char === '*' && next === '/') { blockComment = false; index++ } else if (char === '\n') output += char; continue }
-    if (inString) {
-      output += char
-      if (escaped) escaped = false
-      else if (char === '\\') escaped = true
-      else if (char === '"') inString = false
-      continue
-    }
-    if (char === '"') { inString = true; output += char; continue }
-    if (char === '/' && next === '/') { lineComment = true; index++; continue }
-    if (char === '/' && next === '*') { blockComment = true; index++; continue }
-    output += char
-  }
-  return output.replace(/,\s*([}\]])/g, '$1')
+function lastProperty(object, name) {
+  if (!ts.isObjectLiteralExpression(object)) return null
+  return [...object.properties].reverse().find(property => ts.isPropertyAssignment(property) && property.name.getText().replace(/["']/g, '') === name) ?? null
+}
+function insertAfterBrace(content, node, sourceFile, text) {
+  const index = node.getStart(sourceFile) + 1
+  return content.slice(0, index) + text + content.slice(index)
 }
 function patchConfig(content) {
   if (content === null) throw Error('opencode.jsonc missing')
+  const sourceFile = ts.createSourceFile('opencode.jsonc', content, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSON)
+  const root = sourceFile.statements[0]?.expression
+  if (!root || !ts.isObjectLiteralExpression(root)) throw Error('opencode.jsonc root invalid')
+  const newline = content.includes('\r\n') ? '\r\n' : '\n'
+  const localServer = `{ "type": "local", "command": ["node", "scripts/skill-library-mcp.mjs"], "codemode": false }`
   let next = content
-  if (!/"skill_library"\s*:/.test(next)) {
-    const match = /^(\s*)"permissions"\s*:/m.exec(next)
-    if (!match) throw Error('permissions anchor missing')
-    const index = match.index
-    const mcp = `  "mcp": {\n    "servers": {\n      "skill_library": {\n        "type": "local",\n        "command": ["node", "scripts/skill-library-mcp.mjs"],\n        "codemode": false\n      }\n    }\n  },\n\n`
-    next = next.slice(0, index) + mcp + next.slice(index)
+  let mcp = lastProperty(root, 'mcp')
+  if (!mcp) {
+    const permissions = lastProperty(root, 'permissions')
+    if (!permissions) throw Error('permissions anchor missing')
+    const index = permissions.getStart(sourceFile)
+    const block = `  "mcp": {${newline}    "servers": {${newline}      "skill_library": ${localServer}${newline}    }${newline}  },${newline}${newline}`
+    next = next.slice(0, index) + block + next.slice(index)
+  } else {
+    const mcpObject = mcp.initializer
+    const direct = lastProperty(mcpObject, 'skill_library')
+    const servers = lastProperty(mcpObject, 'servers')
+    if (!direct && !servers) {
+      next = insertAfterBrace(next, mcpObject, sourceFile, `${newline}    "servers": { "skill_library": ${localServer} },`)
+    } else if (servers && !lastProperty(servers.initializer, 'skill_library')) {
+      next = insertAfterBrace(next, servers.initializer, sourceFile, `${newline}      "skill_library": ${localServer},`)
+    }
   }
-  if (!/"action"\s*:\s*"skill_library_\*"/.test(next)) {
-    const match = /"permissions"\s*:\s*\[/.exec(next)
-    if (!match) throw Error('permissions array missing')
-    const index = match.index + match[0].length
-    next = next.slice(0, index) + '\n    { "action": "skill_library_*", "resource": "*", "effect": "allow" },' + next.slice(index)
-  }
-  const parsed = JSON.parse(stripJsonComments(next))
-  if (parsed?.mcp?.servers?.skill_library?.type !== 'local') throw Error('skill_library MCP config invalid')
-  if (!Array.isArray(parsed?.permissions) || !parsed.permissions.some(rule => rule.action === 'skill_library_*' && rule.effect === 'allow')) throw Error('skill_library permission invalid')
+
+  const updated = ts.createSourceFile('opencode.jsonc', next, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSON)
+  const updatedRoot = updated.statements[0]?.expression
+  const permissions = lastProperty(updatedRoot, 'permissions')
+  if (!permissions || !ts.isArrayLiteralExpression(permissions.initializer)) throw Error('permissions array missing')
+  const parsedForPermission = ts.parseConfigFileTextToJson('opencode.jsonc', next)
+  const hasPermission = Array.isArray(parsedForPermission.config?.permissions) && parsedForPermission.config.permissions.some(rule => rule.action === 'skill_library_*' && rule.effect === 'allow')
+  if (!hasPermission) next = insertAfterBrace(next, permissions.initializer, updated, `${newline}    { "action": "skill_library_*", "resource": "*", "effect": "allow" },`)
+
+  const parsed = ts.parseConfigFileTextToJson('opencode.jsonc', next)
+  if (parsed.error?.length) throw Error('opencode.jsonc parse failed: ' + ts.flattenDiagnosticMessageText(parsed.error[0].messageText, ' '))
+  const server = parsed.config?.mcp?.servers?.skill_library ?? parsed.config?.mcp?.skill_library
+  if (server?.type !== 'local') throw Error('skill_library MCP config invalid')
+  if (!Array.isArray(parsed.config?.permissions) || !parsed.config.permissions.some(rule => rule.action === 'skill_library_*' && rule.effect === 'allow')) throw Error('skill_library permission invalid')
   return next
 }
 
