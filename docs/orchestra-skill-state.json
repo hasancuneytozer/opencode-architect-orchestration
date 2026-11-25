@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "files": {
+    ".opencode/skills/yetenek-kullanimi/SKILL.md": "18c40c9d4b5653c57bb129b5073713a6d60092f851a06707ac65a3e8369b989a",
+    "scripts/skill-library-mcp.mjs": "3a5ed70139efa5ba2dce55a21d1a6e2466318d730bfdf1045c21dbced6de2c29",
+    ".opencode/agents/architect.md": "ec999ecc1dd2836bbd07455b987e32a3bba4c772091ebf4f88c84b3dca62ffc0",
+    ".opencode/agents/crew/maker.md": "bb3ab33a394452cbd2842b1e62b29845742342f325b4c950f314c6ce5d4e567f",
+    "opencode.jsonc": "249ebda77357b26f3fe48c6eb880fa92e56542eb7a5e3abc69d09a8428ece05b"
+  }
+}

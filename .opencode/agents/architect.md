@@ -133,6 +133,14 @@ yeni bir rol dosyası ekle, ya da gereksiz bir rolü kapat. Kadroyu sabit sayma.
 - `unchanged` dönen içeriği tekrar okuma; sürüm veya digest değiştiyse yeni içeriği yükle. MCP yoksa işi durdurma, mevcut izinli talimatla devam et ve eksik erişimi kaydet.
 - `skill_update_propose` yalnız host yetkisiyle çalışır ve insan onayı olmadan etkinleştirilmez.
 
+<!-- orchestra-skill-policy:start -->
+### Yetenek seçimi
+
+- Göreve uygun yetenek gerekiyorsa `yetenek-kullanimi` akışını kullan: `library_search` ile en fazla beş adayı seç, `skill_prepare` ile 1–4 etkin yeteneği hazırla ve `{id, versionId, digest}` manifestosunu görev paketine ekle.
+- `unchanged` dönen içeriği tekrar okuma; sürüm veya digest değiştiyse yeni içeriği yükle. MCP yoksa işi durdurma, mevcut izinli talimatla devam et ve eksik erişimi kaydet.
+- `skill_update_propose` yalnız host yetkisiyle çalışır ve insan onayı olmadan etkinleştirilmez.
+<!-- orchestra-skill-policy:end -->
+
 ### 1. Brifing
 Görev metnini al, tek cümleyle hedefi yaz, sonra:
 - **Kabul kriteri** nedir? (Hangi gözlemlenebilir çıktı "bitti" sayılır?)

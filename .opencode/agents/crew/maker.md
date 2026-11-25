@@ -79,6 +79,14 @@ Sen **üreticisin**. Sana verilen iş paketini eksiksiz bitiren sensin. Başka p
 - Sürüm veya digest değiştiyse eski talimatla devam etme. Erişim yoksa bunu teslimde belirt ve mevcut izinli yöntemle sınırlı devam et.
 - Teslimde kullanılan yetenek kimliğini, sürümünü ve digest’ini yaz. Talimat eksik veya yanlışsa `skill_update_propose` ile gerekçeli öneri hazırla; öneriyi kendin etkinleştirme.
 
+<!-- orchestra-skill-policy:start -->
+## Yetenek kullanımı
+
+- Architect `{id, versionId, digest}` manifestosu verdiyse `skill_prepare` sonucundaki bu sürümü kullan. `unchanged` dönerse içeriği tekrar okuma; önceki yüklenen talimatı kullan.
+- Sürüm veya digest değiştiyse eski talimatla devam etme. Erişim yoksa bunu teslimde belirt ve mevcut izinli yöntemle sınırlı devam et.
+- Teslimde kullanılan yetenek kimliğini, sürümünü ve digest’ini yaz. Talimat eksik veya yanlışsa `skill_update_propose` ile gerekçeli öneri hazırla; öneriyi kendin etkinleştirme.
+<!-- orchestra-skill-policy:end -->
+
 ## Çalışma düzeni
 
 1. **Önce oku.** Değiştireceğin yüzeyin mevcut halini ve çevresini oku. Tahminle başlama.
