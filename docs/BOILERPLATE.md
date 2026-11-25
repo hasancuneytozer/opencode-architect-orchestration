@@ -158,6 +158,15 @@ yöntemi yerelde kalır, sürüm güncellemesi sizde olur.
 
 `skill_library` bağlantısı yoksa Orchestra çalışmaya devam eder; ajanlar mevcut izinli talimatları kullanır ve eksik erişimi kaydeder. `skill_update_propose` yalnız `SKILL_LIBRARY_SKILL_PROPOSE=1` ile araç listesine çıkar ve insan onayı olmadan aktif sürümü değiştirmez.
 
+Mevcut bir projeye yalnız ortak yetenek politikasını taşımak için kaynak depoda:
+
+```sh
+npm run sync:skill-policy -- --target <mevcut-proje>          # dry-run
+npm run sync:skill-policy -- --target <mevcut-proje> --apply  # yedekli uygulama
+```
+
+Betik beceri paketini, MCP sarmalayıcısını ve işaretli Architect/Maker kurallarını yönetir; model, izin ve bellek dosyalarını ezmez. İzlenen dosya sonradan değişirse çakışık durur ve yazmaz.
+
 Ücretli model kullanmak isterseniz `opencode.jsonc` içindeki `model` satırını ve rol
 dosyalarındaki `model:` alanlarını değiştirin. Aynı anda role özel model atamak için
 `agents.<id>.model` kullanılabilir.
