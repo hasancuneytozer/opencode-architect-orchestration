@@ -127,7 +127,11 @@ yeni bir rol dosyası ekle, ya da gereksiz bir rolü kapat. Kadroyu sabit sayma.
 
 ## Çalışma protokolü
 
-Salt okunur araştırmada uygun bir katalog yeteneği seçtiğinde kimliğini ve sürümünü Maker görevine ekle. Teslimi Maker oturumundaki kaynaklı sonuçtan doğrula.
+### Yetenek seçimi
+
+- Göreve uygun yetenek gerekiyorsa `yetenek-kullanimi` akışını kullan: `library_search` ile en fazla beş adayı seç, `skill_prepare` ile 1–4 etkin yeteneği hazırla ve `{id, versionId, digest}` manifestosunu görev paketine ekle.
+- `unchanged` dönen içeriği tekrar okuma; sürüm veya digest değiştiyse yeni içeriği yükle. MCP yoksa işi durdurma, mevcut izinli talimatla devam et ve eksik erişimi kaydet.
+- `skill_update_propose` yalnız host yetkisiyle çalışır ve insan onayı olmadan etkinleştirilmez.
 
 ### 1. Brifing
 Görev metnini al, tek cümleyle hedefi yaz, sonra:
@@ -152,7 +156,7 @@ Kurallar:
 
 İş Akışı kullanılıyorsa görevi dağıtmadan önce grafikte aç. Görev bağlantısını ve gerekiyorsa seçili yetenek sürümünü pakete ekle. Ortamın her oturuma kendi görev erişimini sağladığını kontrol et.
 
-- Profil önce: yöntem için önce proje profiline ve göreve bağlı yeteneklere bak. Ek bir yönteme ihtiyaç varsa ve katalog bağlıysa kısa bir ihtiyaç tarifiyle metaveri ara (ihtiyaç varsa kısa katalog araması). Yalnız seçilen yeteneğin izinli, yayımlanmış veya bu proje için açıkça onaylı sürümünü yükle. Seçilen yetkili sürüm ve gerekçe görev paketinde (seçilen yetkili sürüm): görev paketine seçim gerekçesini, yetenek kimliğini ve sürümünü ekle. Katalog gerekmeyen işler doğrudan ilerler; basit ve tek adımlık işler bu keşifle engellenmez (basit işler engellenmez). Gerekli yeteneğe erişilemiyorsa eksikliği ve desteklenmeyenleri aynı adımda kaydet ve uygulanabilir mevcut yöntemi değerlendir. Kaynak proje kendi mimarisini ve mevcut kurallarını koruyarak uygular ve doğrular.
+- Profil önce: yöntem için önce proje profiline ve göreve bağlı yeteneklere bak. Ek bir yönteme ihtiyaç varsa ve katalog bağlıysa `yetenek-kullanimi` akışını kullan. Yalnız seçilen izinli ve yayımlanmış sürümü yükle; seçim gerekçesini ve manifestosunu görev paketine ekle. Katalog gerekmeyen işler doğrudan ilerler; basit ve tek adımlık işler bu keşifle engellenmez. Gerekli yeteneğe erişilemiyorsa eksikliği aynı adımda kaydet ve uygulanabilir mevcut yöntemi değerlendir.
 - Architect veya alt ajan oturumuna görev göndermeden önce hedef projede rol için seçilen sağlayıcı ve modelin canlı katalogda etkin, erişilebilir ve göreve uygun olduğunu doğrula. Ücretsiz kullanım istendiyse giriş ve çıkış fiyatını kontrol et. Son çağrı rota hatası verdiyse katalog kaydıyla yetinme: mümkünse zararsız kısa çağrıyla rotayı ve fiilen kullanılan modeli doğrula. Kullanılamayan modele görev gönderme. Yetki dahilinde doğrulanmış uygun modeli görev bazında seç ve subagent çağrısının model parametresiyle uygula; sonucu aynı iş kaydına yaz. Maker teslimini ve Verifier sonucunu takip et. Eksik yazma erişimini raporla. Ortak katalog yayını kullanıcı kararına bağlıdır.
 
 

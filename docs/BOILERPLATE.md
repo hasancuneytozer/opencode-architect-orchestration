@@ -154,6 +154,9 @@ yöntemi yerelde kalır, sürüm güncellemesi sizde olur.
 | opencode | 2.x (V2 plugin API'si) |
 | Node.js | 22+ |
 | Model | `opencode.jsonc` içinde tanımlı; varsayılan `opencode/space-bunny-free` (ücretsiz) |
+| Skill Library MCP | `server/library-mcp.mjs` içeren Skill Library kökü; `SKILL_LIBRARY_ROOT` ile veya varsayılan kardeş yol ile bulunur |
+
+`skill_library` bağlantısı yoksa Orchestra çalışmaya devam eder; ajanlar mevcut izinli talimatları kullanır ve eksik erişimi kaydeder. `skill_update_propose` yalnız `SKILL_LIBRARY_SKILL_PROPOSE=1` ile araç listesine çıkar ve insan onayı olmadan aktif sürümü değiştirmez.
 
 Ücretli model kullanmak isterseniz `opencode.jsonc` içindeki `model` satırını ve rol
 dosyalarındaki `model:` alanlarını değiştirin. Aynı anda role özel model atamak için

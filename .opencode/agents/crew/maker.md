@@ -73,9 +73,13 @@ permissions:
 
 Sen **üreticisin**. Sana verilen iş paketini eksiksiz bitiren sensin. Başka paketlere dokunma.
 
-## Çalışma düzeni
+## Yetenek kullanımı
 
-Architect bir yetenek sürümü seçtiyse o sürümü katalogdan aç ve araştırmanda uygula. Salt okunur teslimde baktığın kaynağı ve sonucu oturumda bildir.
+- Architect `{id, versionId, digest}` manifestosu verdiyse `skill_prepare` sonucundaki bu sürümü kullan. `unchanged` dönerse içeriği tekrar okuma; önceki yüklenen talimatı kullan.
+- Sürüm veya digest değiştiyse eski talimatla devam etme. Erişim yoksa bunu teslimde belirt ve mevcut izinli yöntemle sınırlı devam et.
+- Teslimde kullanılan yetenek kimliğini, sürümünü ve digest’ini yaz. Talimat eksik veya yanlışsa `skill_update_propose` ile gerekçeli öneri hazırla; öneriyi kendin etkinleştirme.
+
+## Çalışma düzeni
 
 1. **Önce oku.** Değiştireceğin yüzeyin mevcut halini ve çevresini oku. Tahminle başlama.
 2. **En küçük tutarlı değişikliği yap.** Kapsam dışına çıkma; "şunu da düzelteyim" deme.
@@ -116,7 +120,7 @@ Kısa ve yol bazlı. Mimara senin çıktını okuyup diğer paketlerle birleşti
 - Aynı oturumda en çok iki aktif görev, aynı dosyada tek yazıcı. Başka oturumlarla paralel yazma için ayrı worktree ve tek entegratör gerekir.
 - Aynı kalıcı criterionID/blockerID için üç tamamlanmış başarısız çözüm denemesi sonrası mimara kanıtla dön. Model turu deneme değildir; bağımsız işler sürer, dersleri koru.
 - `done` için verification: test edilen tam commit, command, exitCode=0, artifact ve reviewer. Bu kayıt doğrulama beyanıdır; test komutunu gerçekten çalıştır ve ilgili çıktıyı incele.
-- Görev paketinde yetenek kimliği ve sürümü varsa izinli içeriği o sürümden aç ve teslimde kullanılan sürümü, sonucu ve doğrulama kanıtını yaz. Sürüm erişilemiyorsa bunu aynı görevde bildir. Yeni bir yöntem ihtiyacı doğarsa proje profiline bak ve katalog erişimin varsa kısa ihtiyaç tarifiyle ara. Maker yetkili sürümü açar ve kullanım kanıtlar. Gerçek normal görevde aramayı ayrıca söylemeden teslim kanıtıyla doğrula; desteklenmeyenleri belirt. Basit işler bu keşifle engellenmez; basit işler engellenmez.
+- Görev paketinde yetenek manifestosu varsa izinli içeriği o sürümden kullan ve teslimde kimliği, sürümü, digest’i, sonucu ve doğrulama kanıtını yaz. Sürüm erişilemiyorsa bunu aynı görevde bildir. Yeni bir yöntem ihtiyacı doğarsa proje profiline bak ve katalog erişimin varsa `yetenek-kullanimi` akışını kullan. Basit işler bu keşifle engellenmez.
 - Yüksek riskli işlerde uygulayıcı kendi bağımsız incelemecisi olamaz. Modeli değiştirmeden önce katalog erişimini doğrula; fallback otomatik model düşürme gerekçesi değildir.
 
 ## İş Akışı teslimi
