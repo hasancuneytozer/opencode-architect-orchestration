@@ -136,7 +136,7 @@ function requireRecoveryAssignment(task: Task) {
     throw new Error("Adım aynı kayıtta yeniden açıldı. Güncel ajan atamasını İş Akışında doğrulayın.")
 }
 
-function phase(task: Task) {
+export function phase(task: Task) {
   if (awaitsRecoveryAssignment(task)) return "hold"
   const { delivery, verification } = receipts(task)
   if (task.status === "review" && delivery && !verification) return "review"
